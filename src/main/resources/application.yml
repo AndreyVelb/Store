@@ -1,0 +1,44 @@
+db:
+  username: shop_admin
+  password: pass
+  driver: PostgresDriver
+  url: postgres:5432
+  hosts: localhost,127.0.0.1
+
+spring:
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ВАШ EMAIL
+    password: ВАШ ПАРОЛЬ ДЛЯ ПРИЛОЖЕНИЙ ОТ EMAIL
+    protocol: smtp
+    properties.mail.smtp:
+      auth: true
+      starttls.enable: true
+      ssl.trust: smtp.gmail.com
+
+  datasource:
+    url: jdbc:postgresql://127.0.0.1:5432/shop
+    username: shop_admin
+    password: pass
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    open-in-view: false
+    properties:
+      hibernate:
+        show_sql: true
+        format_sql: true
+        ddl-auto: validate
+
+  liquibase:
+    change-log: db/changelog/db.changelog-master.xml
+
+  main:
+    banner-mode: off
+
+  messages:
+    encoding: UTF-8
+
+  schedule:
+    cron_interval: 0 0 0/3 * * *

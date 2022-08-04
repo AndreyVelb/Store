@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                   http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.4.xsd">
+
+    <changeSet id="09.05.2022--1--create-extensions" author="avelb">
+        <sqlFile path="db/changelog/v-1-0-0/09.05.2022--1--create-extensions.sql"/>
+    </changeSet>
+
+    <changeSet id="09.05.2022--2--create-table-products" author="avelb">
+        <sqlFile path="db/changelog/v-1-0-0/09.05.2022--2--create-table-products.sql"/>
+        <rollback>
+            drop if exists table "products";
+        </rollback>
+    </changeSet>
+
+    <changeSet id="09.05.2022--3--create-table-users" author="avelb">
+        <sqlFile path="db/changelog/v-1-0-0/09.05.2022--3--create-table-users.sql"/>
+        <rollback>
+            drop if exists table "users";
+        </rollback>
+    </changeSet>
+
+    <changeSet id="09.05.2022--4--create-table-basket-elements" author="avelb">
+        <sqlFile path="db/changelog/v-1-0-0/09.05.2022--4--create-table-basket-elements.sql"/>
+        <rollback>
+            drop if exists table "basket_elements";
+        </rollback>
+    </changeSet>
+
+    <changeSet id="09.05.2022--5--create-table-orders" author="avelb">
+        <sqlFile path="db/changelog/v-1-0-0/09.05.2022--5--create-table-orders.sql"/>
+        <rollback>
+            drop if exists table "orders";
+        </rollback>
+    </changeSet>
+
+    <changeSet id="09.05.2022--6--create-table-order-audit" author="avelb">
+        <sqlFile path="db/changelog/v-1-0-0/09.05.2022--6--create-table-order-audit.sql"/>
+        <rollback>
+            drop if exists table "order_audit";
+        </rollback>
+    </changeSet>
+
+    <changeSet id="09.05.2022--7--create-table-hashtags" author="avelb">
+        <sqlFile path="db/changelog/v-1-0-0/09.05.2022--7--create-table-hashtags.sql"/>
+        <rollback>
+            drop if exists table "hashtags";
+        </rollback>
+    </changeSet>
+
+    <changeSet id="09.05.2022--8--create-products-fts-trigger" author="avelb">
+        <sqlFile path="db/changelog/v-1-0-0/09.05.2022--8--create-products-fts-trigger.sql"/>
+        <rollback>
+            drop if exists trigger "products-fts-trigger";
+        </rollback>
+    </changeSet>
+
+    <changeSet id="09.05.2022--9--create-products-fts-index" author="avelb">
+        <sqlFile path="db/changelog/v-1-0-0/09.05.2022--9--create-products-fts-index.sql"/>
+        <rollback>
+            drop if exists index "products_fts_gin_index";
+        </rollback>
+    </changeSet>
+
+    <changeSet id="09.05.2022--10--set-lock-timeout" author="avelb">
+        <sqlFile path="db/changelog/v-1-0-0/09.05.2022--10--set-lock-timeout.sql"/>
+        <rollback/>
+    </changeSet>
+
+</databaseChangeLog>

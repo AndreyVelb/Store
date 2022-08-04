@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                   http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.4.xsd">
+
+    <include file="db/changelog/v-1-0-0/v-1-0-0--changelog-cumulative.xml"/>
+
+    <changeSet id="v-1-0-0-insert-test-data-in-products" author="avelb" >
+        <sqlFile path="db/changelog/testdata/1--insert-test-data-in-products.sql"/>
+    </changeSet>
+
+    <changeSet id="v-1-0-0-insert-test-data-in-users" author="avelb" >
+        <sqlFile path="db/changelog/testdata/2--insert-test-data-in-users.sql"/>
+    </changeSet>
+
+    <changeSet id="v-1-0-0-insert-test-data-in-baslet-elements" author="avelb" >
+        <sqlFile path="db/changelog/testdata/3--insert-test-data-in-basket-elements.sql"/>
+    </changeSet>
+
+    <changeSet id="v-1-0-0-insert-test-data-in-orders" author="avelb" >
+        <sqlFile path="db/changelog/testdata/4--insert-test-data-in-orders.sql"/>
+    </changeSet>
+
+    <changeSet id="v-1-0-0-insert-test-data-in-hashtags" author="avelb" >
+        <sqlFile path="db/changelog/testdata/5--insert-test-data-in-hashtags.sql"/>
+    </changeSet>
+
+    <changeSet id="v-1-0-0-insert-test-data-in-order-audit" author="avelb" >
+        <sqlFile path="db/changelog/testdata/6--insert-test-data-in-order-audit.sql"/>
+    </changeSet>
+
+</databaseChangeLog>

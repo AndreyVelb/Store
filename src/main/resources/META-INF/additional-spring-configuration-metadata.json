@@ -1,0 +1,23 @@
+{
+  "properties": [
+    {
+      "name": "db.username",
+      "type": "java.lang.String",
+      "description": "Description for db.username."
+    },
+    {
+      "name": "spring.spring.mail.host",
+      "type": "java.lang.String",
+      "description": "Description for spring.spring.mail.host."
+    },
+    {
+      "name": "spring.spring.mail.properties.mail.smtp.auth",
+      "type": "java.lang.String",
+      "description": "Description for spring.spring.mail.properties.mail.smtp.auth."
+    },
+    {
+      "name": "spring.schedule.cron_interval",
+      "type": "java.lang.String",
+      "description": "Description for spring.schedule.cron_interval."
+    }
+  ] }
