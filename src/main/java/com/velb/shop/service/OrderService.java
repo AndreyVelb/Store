@@ -5,28 +5,25 @@ import com.velb.shop.exception.InsufficientProductQuantityException;
 import com.velb.shop.exception.OrderNotFoundException;
 import com.velb.shop.exception.ProductNotFoundException;
 import com.velb.shop.exception.UserNotFoundException;
+import com.velb.shop.model.dto.BasketElementForPrepareOrderDto;
 import com.velb.shop.model.dto.OrderCreatingDto;
-import com.velb.shop.model.dto.OrderResponseDto;
+import com.velb.shop.model.dto.OrderHistoryDto;
 import com.velb.shop.model.dto.OrderUpdatingDto;
 import com.velb.shop.model.dto.PreparedOrderForShowUserDto;
 import com.velb.shop.model.entity.BasketElement;
 import com.velb.shop.model.entity.Order;
-import com.velb.shop.model.entity.OrderAuditRecord;
 import com.velb.shop.model.entity.Product;
 import com.velb.shop.model.entity.User;
-import com.velb.shop.model.entity.auxiliary.AdminOrderStatus;
-import com.velb.shop.model.entity.auxiliary.ConsumerOrderStatus;
-import com.velb.shop.model.entity.auxiliary.OrderElement;
-import com.velb.shop.model.entity.auxiliary.OrderInfo;
-import com.velb.shop.model.mapper.OrderResponseDtoMapper;
+import com.velb.shop.model.entity.auxiliary.OrderStatus;
+import com.velb.shop.model.mapper.OrderHistoryDtoMapper;
 import com.velb.shop.model.mapper.ProductForOrderMapper;
 import com.velb.shop.repository.BasketElementRepository;
-import com.velb.shop.repository.OrderAuditRepository;
 import com.velb.shop.repository.OrderRepository;
 import com.velb.shop.repository.ProductRepository;
 import com.velb.shop.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -44,20 +41,19 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final UserRepository userRepository;
     private final ProductRepository productRepository;
-    private final OrderAuditRepository orderAuditRepository;
     private final BasketElementRepository basketElementRepository;
     private final ProductForOrderMapper productForOrderMapper;
-    private final OrderResponseDtoMapper orderResponseDtoMapper;
+    private final OrderHistoryDtoMapper orderHistoryDtoMapper;
 
     @Transactional
     public PreparedOrderForShowUserDto prepareOrderByConsumer(Long consumerId) {
-        List<OrderElement> orderContent = new ArrayList<>();
+        List<BasketElementForPrepareOrderDto> preparedOrderContent = new ArrayList<>();
         int totalCost = 0;
         StringBuilder messageBuilder = new StringBuilder();
 
         userRepository.findById(consumerId).orElseThrow(()
                 -> new UserNotFoundException("Вы вошли в систему как некорректный пользователь; "));
-        List<BasketElement> consumersBasket = basketElementRepository.findAllFetchProductByConsumerIdWithPessimisticLock(consumerId);
+        List<BasketElement> consumersBasket = basketElementRepository.findAllFetchProductByConsumerIdNotOrderedWithLock(consumerId);
 
         if (consumersBasket.isEmpty()) {
             throw new BasketIsEmptyException("Ваша корзина пуста; ");
@@ -74,25 +70,25 @@ public class OrderService {
                 basketElementRepository.save(basketElement);
                 messageBuilder.append(createResponseAboutNotEnoughAmountOfProductWithAdding(basketElement.getProduct(), orderedAmount));
                 basketElement.getProduct().setAmount(0);
-                productRepository.saveAndFlush(basketElement.getProduct());
             } else {
                 basketElement.setProductBookingTime(LocalDateTime.now());
                 basketElementRepository.save(basketElement);
                 basketElement.getProduct().setAmount(amountInShop - orderedAmount);
-                productRepository.saveAndFlush(basketElement.getProduct());
             }
+            basketElement.setPriceInOrder(basketElement.getProduct().getPrice());   //Позволяет гарантировать цену товара при заказе покупателем
+            productRepository.saveAndFlush(basketElement.getProduct());
 
             totalCost += basketElement.getProduct().getPrice() * basketElement.getAmount();
 
-            orderContent.add(
-                    OrderElement.builder()
-                            .productForOrder(productForOrderMapper.map(basketElement.getProduct()))
+            preparedOrderContent.add(
+                    BasketElementForPrepareOrderDto.builder()
+                            .product(productForOrderMapper.map(basketElement.getProduct()))
                             .amount(basketElement.getAmount())
                             .build());
         }
 
         return PreparedOrderForShowUserDto.builder()
-                .content(orderContent)
+                .content(preparedOrderContent)
                 .totalCoast(totalCost)
                 .messageForUser(messageBuilder.toString())
                 .build();
@@ -100,44 +96,40 @@ public class OrderService {
 
     @Transactional
     public Long makeOrderByConsumer(Long consumerId) {
-        List<OrderElement> orderContent = new ArrayList<>();
         int totalCost = 0;
 
-        User user = userRepository.findById(consumerId).orElseThrow(()
+        User consumer = userRepository.findById(consumerId).orElseThrow(()
                 -> new UserNotFoundException("Вы вошли в систему как некорректный пользователь; "));
-        List<BasketElement> usersBasket = user.getBasket();
+        List<BasketElement> usersBasket = basketElementRepository.findAllByConsumerIdNotOrdered(consumerId);
 
         if (usersBasket.isEmpty()) {
             throw new BasketIsEmptyException("Ваша корзина пуста; ");
         }
 
         for (BasketElement basketElement : usersBasket) {
-            totalCost += basketElement.getProduct().getPrice() * basketElement.getAmount();
-
-            orderContent.add(
-                    OrderElement.builder()
-                            .productForOrder(productForOrderMapper.map(basketElement.getProduct()))
-                            .amount(basketElement.getAmount())
-                            .build());
-
-            basketElementRepository.delete(basketElement);
+            totalCost += basketElement.getPriceInOrder() * basketElement.getAmount();
         }
 
         Order order = Order.builder()
                 .date(LocalDateTime.now())
-                .consumer(user)
-                .content(orderContent)
+                .consumer(consumer)
                 .totalCost(totalCost)
-                .consumerOrderStatus(ConsumerOrderStatus.IN_PROCESS)
+                .orderStatus(OrderStatus.IN_PROCESS)
+                .lastUser(consumer)
                 .build();
+
+        for (BasketElement basketElement : usersBasket) {
+            basketElement.setOrder(order);
+            basketElement.setProductBookingTime(null);
+        }
         return orderRepository.save(order).getId();
     }
 
     @Transactional
     public void cancelOrderCreationByConsumer(Long consumerId) {
-        User user = userRepository.findByIdFetchBasket(consumerId).orElseThrow(()
+        userRepository.findByIdFetchBasket(consumerId).orElseThrow(()
                 -> new UserNotFoundException("Вы вошли в систему как некорректный пользователь; "));
-        List<BasketElement> usersBasket = user.getBasket();
+        List<BasketElement> usersBasket = basketElementRepository.findAllByConsumerIdNotOrdered(consumerId);
 
         for (BasketElement basketElement : usersBasket) {
             int amountInShop = basketElement.getProduct().getAmount();
@@ -146,14 +138,9 @@ public class OrderService {
             basketElement.getProduct().setAmount(amountInShop + amountInUsersBasket);
             productRepository.save(basketElement.getProduct());
             basketElement.setProductBookingTime(null);
+            basketElement.setPriceInOrder(null);
             basketElementRepository.save(basketElement);
         }
-    }
-
-    @Transactional(readOnly = true)
-    public Page<OrderResponseDto> getAllOrdersByAdmin(Pageable pageable) {
-        Page<Order> orders = orderRepository.findAllFetchConsumers(pageable);
-        return orders.map(orderResponseDtoMapper::map);
     }
 
     @Transactional
@@ -163,7 +150,7 @@ public class OrderService {
         User consumer = userRepository.findById(orderCreatingDto.getConsumerId()).orElseThrow(()
                 -> new UserNotFoundException("Вы выбрали некорректного покупателя; "));
 
-        List<OrderElement> orderContent = new ArrayList<>();
+        List<BasketElement> orderContent = new ArrayList<>();
         int totalCoast = 0;
         StringBuilder messageBuilder = new StringBuilder();
         boolean isEnoughAmountOfProducts = true;
@@ -181,40 +168,33 @@ public class OrderService {
         if (isEnoughAmountOfProducts) {
             for (Map.Entry<Long, Integer> entry : orderCreatingDto.getProductsAndAmount().entrySet()) {
                 Product product = productMap.get(entry.getKey());
-                orderContent.add(
-                        OrderElement.builder()
-                                .productForOrder(productForOrderMapper.map(product))
-                                .amount(entry.getValue())
-                                .build());
+                BasketElement createdBasketElement = BasketElement.builder()
+                        .consumer(consumer)
+                        .product(product)
+                        .amount(entry.getValue())
+                        .priceInOrder(product.getPrice())
+                        .build();
                 product.setAmount(product.getAmount() - entry.getValue());
                 productRepository.saveAndFlush(product);
-
+                basketElementRepository.save(createdBasketElement);
+                orderContent.add(createdBasketElement);
                 totalCoast += entry.getValue() * product.getPrice();
             }
         } else throw new InsufficientProductQuantityException(messageBuilder.toString());
 
-        orderAuditRepository.save(
-                OrderAuditRecord.builder()
-                        .admin(admin)
+        Order createdOrder = orderRepository.save(
+                Order.builder()
                         .consumer(consumer)
                         .date(LocalDateTime.now())
-                        .orderInfo(OrderInfo.builder()
-                                .content(orderContent)
-                                .totalPrice(totalCoast)
-                                .consumerStatus(ConsumerOrderStatus.IN_PROCESS)
-                                .build())
-                        .adminOrderStatus(AdminOrderStatus.CREATED)
-                        .build()
-        );
-        return orderRepository.save(
-                        Order.builder()
-                                .consumer(consumer)
-                                .date(LocalDateTime.now())
-                                .content(orderContent)
-                                .totalCost(totalCoast)
-                                .consumerOrderStatus(ConsumerOrderStatus.IN_PROCESS)
-                                .build())
-                .getId();
+                        .totalCost(totalCoast)
+                        .orderStatus(OrderStatus.IN_PROCESS)
+                        .lastUser(admin)
+                        .build());
+
+        for (BasketElement basketElement : orderContent) {
+            basketElement.setOrder(createdOrder);
+        }
+        return createdOrder.getId();
     }
 
     @Transactional
@@ -224,60 +204,51 @@ public class OrderService {
         User admin = userRepository.findById(adminId).orElseThrow(()
                 -> new UserNotFoundException("Вы вошли в систему как некорректный пользователь; "));
 
-        List<OrderElement> orderContent = new ArrayList<>();
         int totalCoast = 0;
         StringBuilder messageBuilder = new StringBuilder();
-        boolean isEnoughAmountOfProducts = true;
+        List<BasketElement> orderContent = basketElementRepository.findAllByOrderId(orderUpdatingDto.getOrderId());
 
         for (Map.Entry<Long, Integer> entry : orderUpdatingDto.getProductsAndAmount().entrySet()) {
             Product product = productRepository.findByIdWithPessimisticLock(entry.getKey()).orElseThrow(()
                     -> new ProductNotFoundException("Товара с id " + entry.getKey() + " не существует; "));
 
-            for (OrderElement orderElement : orderForUpdate.getContent()) {
-                if (Objects.equals(orderElement.getProductForOrder().getId(), entry.getKey())) {
-                    if (product.getAmount() + orderElement.getAmount() < entry.getValue()) {
-                        messageBuilder.append(createResponseAboutNotEnoughAmountOfProduct(product, entry.getValue()));
-                        isEnoughAmountOfProducts = false;
-                    }
-
-                    if (isEnoughAmountOfProducts) {
-                        product.setAmount(product.getAmount() + orderElement.getAmount() - entry.getValue());
-                        productRepository.save(product);
-                        orderContent.add(
-                                OrderElement.builder()
-                                        .productForOrder(productForOrderMapper.map(product))
-                                        .amount(entry.getValue())
-                                        .build());
-                        totalCoast += entry.getValue() * product.getPrice();
+            if (isPresentInBasket(entry.getKey(), orderContent)) {
+                for (BasketElement basketElement : orderContent) {
+                    if (Objects.equals(basketElement.getProduct().getId(), entry.getKey())) {
+                        if (isEnoughAmountOfProducts(product, basketElement, entry.getValue())) {
+                            product.setAmount(product.getAmount() + basketElement.getAmount() - entry.getValue());
+                            productRepository.save(product);
+                            basketElement.setAmount(entry.getValue());
+                            totalCoast += entry.getValue() * product.getPrice();
+                        } else {
+                            messageBuilder.append(createResponseAboutNotEnoughAmountOfProduct(product, entry.getValue()));
+                        }
                     }
                 }
+            } else {
+                if (isEnoughAmountOfProducts(product, entry.getValue())) {
+                    basketElementRepository.saveAndFlush(
+                            BasketElement.builder()
+                                    .product(product)
+                                    .amount(entry.getValue())
+                                    .consumer(orderForUpdate.getConsumer())
+                                    .order(orderForUpdate)
+                                    .priceInOrder(product.getPrice())
+                                    .build());
+                } else {
+                    messageBuilder.append(createResponseAboutNotEnoughAmountOfProduct(product, entry.getValue()));
+                }
             }
-            orderForUpdate.getContent().forEach(orderElement -> {
-
-            });
         }
 
         if (messageBuilder.isEmpty()) {
-            ConsumerOrderStatus consumerStatus =
-                    orderUpdatingDto.getConsumerStatus() == null ? orderForUpdate.getConsumerOrderStatus()
-                            : ConsumerOrderStatus.valueOf(orderUpdatingDto.getConsumerStatus());
-            orderForUpdate.setContent(orderContent);
+            OrderStatus consumerStatus = orderUpdatingDto.getConsumerStatus() == null
+                    ? orderForUpdate.getOrderStatus()
+                    : OrderStatus.valueOf(orderUpdatingDto.getConsumerStatus());
             orderForUpdate.setTotalCost(totalCoast);
-            orderForUpdate.setConsumerOrderStatus(consumerStatus);
+            orderForUpdate.setOrderStatus(consumerStatus);
+            orderForUpdate.setLastUser(admin);
             orderRepository.save(orderForUpdate);
-
-            orderAuditRepository.save(
-                    OrderAuditRecord.builder()
-                            .consumer(orderForUpdate.getConsumer())
-                            .date(LocalDateTime.now())
-                            .orderInfo(OrderInfo.builder()
-                                    .consumerStatus(consumerStatus)
-                                    .content(orderForUpdate.getContent())
-                                    .totalPrice(orderForUpdate.getTotalCost())
-                                    .build())
-                            .admin(admin)
-                            .adminOrderStatus(AdminOrderStatus.CHANGED)
-                            .build());
         } else throw new InsufficientProductQuantityException(messageBuilder.toString());
     }
 
@@ -287,20 +258,25 @@ public class OrderService {
                 -> new UserNotFoundException("Вы вошли в систему как некорректный пользователь; "));
         Order orderForDelete = orderRepository.findById(orderId).orElseThrow(()
                 -> new OrderNotFoundException("Заказа с id " + orderId + " не существует; "));
-        orderAuditRepository.save(
-                OrderAuditRecord.builder()
-                        .consumer(orderForDelete.getConsumer())
-                        .date(LocalDateTime.now())
-                        .orderInfo(OrderInfo.builder()
-                                .content(orderForDelete.getContent())
-                                .totalPrice(orderForDelete.getTotalCost())
-                                .consumerStatus(orderForDelete.getConsumerOrderStatus())
-                                .build())
-                        .admin(admin)
-                        .adminOrderStatus(AdminOrderStatus.DELETED)
-                        .build());
-        orderRepository.delete(orderForDelete);
+        orderForDelete.setOrderStatus(OrderStatus.DELETED);
+        orderForDelete.setLastUser(admin);
+        //TODO проверить не нужно ли save
+    }
 
+    @Transactional(readOnly = true)
+    public Page<OrderHistoryDto> getOrderHistory(Long consumerId, Pageable pageable) {
+        Page<Order> allNecessaryOrders;
+        if (consumerId == null) {
+            allNecessaryOrders = orderRepository.findAllFetchConsumerAndLastUser(pageable);
+        } else {
+            allNecessaryOrders = orderRepository.findAllByConsumerIdFetchConsumerAndLastUser(consumerId, pageable);
+        }
+        List<OrderHistoryDto> orderHistoryDtoList = new ArrayList<>();
+        for (Order order : allNecessaryOrders) {
+            List<BasketElement> basketElementList = basketElementRepository.findAllByOrderIdFetchProduct(order.getId());
+            orderHistoryDtoList.add(orderHistoryDtoMapper.map(order, basketElementList));
+        }
+        return new PageImpl<>(orderHistoryDtoList, pageable, orderHistoryDtoList.size());
     }
 
     private String createResponseAboutNotEnoughAmountOfProduct(Product product, Integer amountInUsersBasket) {
@@ -313,6 +289,25 @@ public class OrderService {
         return " - Приносим свои извинения, но к сожалению на данный момент такого количества товара " +
                 product.getTitle() + " на складе нет. " +
                 "Мы добавили в ваш заказ " + product.getAmount() + " из " + amountInUsersBasket + " экземпляров. ";
+    }
+
+    private boolean isPresentInBasket(Long productId, List<BasketElement> basket) {
+        boolean isPresent = false;
+        for (BasketElement basketElement : basket) {
+            if (basketElement.getProduct().getId().equals(productId)) {
+                isPresent = true;
+                break;
+            }
+        }
+        return isPresent;
+    }
+
+    private boolean isEnoughAmountOfProducts(Product product, BasketElement basketElement, Integer amountInRequest) {
+        return product.getAmount() + basketElement.getAmount() > amountInRequest;
+    }
+
+    private boolean isEnoughAmountOfProducts(Product product, Integer amountInRequest) {
+        return product.getAmount() > amountInRequest;
     }
 
     private boolean isSufficientAmountOfProducts(Integer amountInShop, Integer amountInConsumersBasket) {

@@ -69,13 +69,13 @@ public class BasketElementServiceIT extends IntegrationTestBase {
     void addProductsToBasket() {
         Long consumerId = 3L;
         List<BasketElementDto> basketElementDtoList = createBasketElementDtoList();
-        var basketEl1FromDB = basketElementRepository.findByConsumerIdAndProductIdFetchProduct(
+        var basketEl1FromDB = basketElementRepository.findByConsumerIdAndProductIdFetchProductNotOrdered(
                 consumerId,
                 basketElementDtoList.get(0).getProductId());
-        var basketEl2FromDB = basketElementRepository.findByConsumerIdAndProductIdFetchProduct(
+        var basketEl2FromDB = basketElementRepository.findByConsumerIdAndProductIdFetchProductNotOrdered(
                 consumerId,
                 basketElementDtoList.get(1).getProductId());
-        var basketEl3FromDB = basketElementRepository.findByConsumerIdAndProductIdFetchProduct(
+        var basketEl3FromDB = basketElementRepository.findByConsumerIdAndProductIdFetchProductNotOrdered(
                 consumerId,
                 basketElementDtoList.get(2).getProductId());
         int amountBeforeAdding1 = getBasketElementAmount(basketEl1FromDB);
@@ -84,9 +84,9 @@ public class BasketElementServiceIT extends IntegrationTestBase {
 
         basketElementService.addProductsToBasket(consumerId, basketElementDtoList);
 
-        var basketEl1AfterAdding = basketElementRepository.findByConsumerIdAndProductIdFetchProduct(consumerId, basketElementDtoList.get(0).getProductId());
-        var basketEl2AfterAdding = basketElementRepository.findByConsumerIdAndProductIdFetchProduct(consumerId, basketElementDtoList.get(1).getProductId());
-        var basketEl3AfterAdding = basketElementRepository.findByConsumerIdAndProductIdFetchProduct(consumerId, basketElementDtoList.get(2).getProductId());
+        var basketEl1AfterAdding = basketElementRepository.findByConsumerIdAndProductIdFetchProductNotOrdered(consumerId, basketElementDtoList.get(0).getProductId());
+        var basketEl2AfterAdding = basketElementRepository.findByConsumerIdAndProductIdFetchProductNotOrdered(consumerId, basketElementDtoList.get(1).getProductId());
+        var basketEl3AfterAdding = basketElementRepository.findByConsumerIdAndProductIdFetchProductNotOrdered(consumerId, basketElementDtoList.get(2).getProductId());
 
         assertTrue(basketEl1AfterAdding.isPresent());
         assertTrue(basketEl2AfterAdding.isPresent());
@@ -114,16 +114,16 @@ public class BasketElementServiceIT extends IntegrationTestBase {
         basketElementDtoList.add(listWithNormalBasketEls.get(1));
         basketElementDtoList.add(unNormalBasketElementDto2);
         basketElementDtoList.add(listWithNormalBasketEls.get(2));
-        var basketEl1FromDB = basketElementRepository.findByConsumerIdAndProductIdFetchProduct(
+        var basketEl1FromDB = basketElementRepository.findByConsumerIdAndProductIdFetchProductNotOrdered(
                 consumerId,
                 basketElementDtoList.get(0).getProductId());
-        var basketEl3FromDB = basketElementRepository.findByConsumerIdAndProductIdFetchProduct(
+        var basketEl3FromDB = basketElementRepository.findByConsumerIdAndProductIdFetchProductNotOrdered(
                 consumerId,
                 basketElementDtoList.get(2).getProductId());
-        var basketEl4FromDB = basketElementRepository.findByConsumerIdAndProductIdFetchProduct(
+        var basketEl4FromDB = basketElementRepository.findByConsumerIdAndProductIdFetchProductNotOrdered(
                 consumerId,
                 basketElementDtoList.get(3).getProductId());
-        var basketEl5FromDB = basketElementRepository.findByConsumerIdAndProductIdFetchProduct(
+        var basketEl5FromDB = basketElementRepository.findByConsumerIdAndProductIdFetchProductNotOrdered(
                 consumerId,
                 basketElementDtoList.get(4).getProductId());
         int amountBeforeAdding1 = getBasketElementAmount(basketEl1FromDB);
@@ -142,10 +142,10 @@ public class BasketElementServiceIT extends IntegrationTestBase {
         Exception exception = assertThrows(TotalRuntimeException.class, ()
                 -> basketElementService.addProductsToBasket(consumerId, basketElementDtoList));
 
-        var basketEl1AfterAdding = basketElementRepository.findByConsumerIdAndProductIdFetchProduct(consumerId, basketElementDtoList.get(0).getProductId());
-        var basketEl3AfterAdding = basketElementRepository.findByConsumerIdAndProductIdFetchProduct(consumerId, basketElementDtoList.get(2).getProductId());
-        var basketEl4AfterAdding = basketElementRepository.findByConsumerIdAndProductIdFetchProduct(consumerId, basketElementDtoList.get(3).getProductId());
-        var basketEl5AfterAdding = basketElementRepository.findByConsumerIdAndProductIdFetchProduct(consumerId, basketElementDtoList.get(4).getProductId());
+        var basketEl1AfterAdding = basketElementRepository.findByConsumerIdAndProductIdFetchProductNotOrdered(consumerId, basketElementDtoList.get(0).getProductId());
+        var basketEl3AfterAdding = basketElementRepository.findByConsumerIdAndProductIdFetchProductNotOrdered(consumerId, basketElementDtoList.get(2).getProductId());
+        var basketEl4AfterAdding = basketElementRepository.findByConsumerIdAndProductIdFetchProductNotOrdered(consumerId, basketElementDtoList.get(3).getProductId());
+        var basketEl5AfterAdding = basketElementRepository.findByConsumerIdAndProductIdFetchProductNotOrdered(consumerId, basketElementDtoList.get(4).getProductId());
 
         assertTrue(basketEl1AfterAdding.isPresent());
         assertTrue(basketEl3AfterAdding.isPresent());
@@ -164,13 +164,13 @@ public class BasketElementServiceIT extends IntegrationTestBase {
 
         basketElementService.changeBasketElements(basketElementUpdatingDtoList, consumerId);
 
-        var basketEl1AfterChanging = basketElementRepository.findByConsumerIdAndProductIdFetchProduct(
+        var basketEl1AfterChanging = basketElementRepository.findByConsumerIdAndProductIdFetchProductNotOrdered(
                 consumerId,
                 basketElementUpdatingDtoList.get(0).getProductId());
-        var basketEl2AfterChanging = basketElementRepository.findByConsumerIdAndProductIdFetchProduct(
+        var basketEl2AfterChanging = basketElementRepository.findByConsumerIdAndProductIdFetchProductNotOrdered(
                 consumerId,
                 basketElementUpdatingDtoList.get(1).getProductId());
-        var basketEl3AfterChanging = basketElementRepository.findByConsumerIdAndProductIdFetchProduct(
+        var basketEl3AfterChanging = basketElementRepository.findByConsumerIdAndProductIdFetchProductNotOrdered(
                 consumerId,
                 basketElementUpdatingDtoList.get(2).getProductId());
 
@@ -201,7 +201,7 @@ public class BasketElementServiceIT extends IntegrationTestBase {
         basketElUpdatingDtoList.add(unNormalBasketElUpdatingDto2);
         basketElUpdatingDtoList.add(normalBasketElUpdatingDtoList.get(2));
 
-        var basketEl4FromDB = basketElementRepository.findByConsumerIdAndProductIdFetchProduct(
+        var basketEl4FromDB = basketElementRepository.findByConsumerIdAndProductIdFetchProductNotOrdered(
                 consumerId,
                 basketElUpdatingDtoList.get(3).getProductId());
         int amountBeforeChanging4 = getBasketElementAmount(basketEl4FromDB);
@@ -218,10 +218,10 @@ public class BasketElementServiceIT extends IntegrationTestBase {
         Exception exception = assertThrows(TotalRuntimeException.class, ()
                 -> basketElementService.changeBasketElements(basketElUpdatingDtoList, consumerId));
 
-        var basketEl1AfterChanging = basketElementRepository.findByConsumerIdAndProductIdFetchProduct(consumerId, basketElUpdatingDtoList.get(0).getProductId());
-        var basketEl3AfterChanging = basketElementRepository.findByConsumerIdAndProductIdFetchProduct(consumerId, basketElUpdatingDtoList.get(2).getProductId());
-        var basketEl4AfterChanging = basketElementRepository.findByConsumerIdAndProductIdFetchProduct(consumerId, basketElUpdatingDtoList.get(3).getProductId());
-        var basketEl5AfterChanging = basketElementRepository.findByConsumerIdAndProductIdFetchProduct(consumerId, basketElUpdatingDtoList.get(4).getProductId());
+        var basketEl1AfterChanging = basketElementRepository.findByConsumerIdAndProductIdFetchProductNotOrdered(consumerId, basketElUpdatingDtoList.get(0).getProductId());
+        var basketEl3AfterChanging = basketElementRepository.findByConsumerIdAndProductIdFetchProductNotOrdered(consumerId, basketElUpdatingDtoList.get(2).getProductId());
+        var basketEl4AfterChanging = basketElementRepository.findByConsumerIdAndProductIdFetchProductNotOrdered(consumerId, basketElUpdatingDtoList.get(3).getProductId());
+        var basketEl5AfterChanging = basketElementRepository.findByConsumerIdAndProductIdFetchProductNotOrdered(consumerId, basketElUpdatingDtoList.get(4).getProductId());
 
         assertTrue(basketEl1AfterChanging.isPresent());
         assertTrue(basketEl3AfterChanging.isPresent());
@@ -393,7 +393,7 @@ public class BasketElementServiceIT extends IntegrationTestBase {
                 .productId(productId)
                 .amount(amount)
                 .build();
-        Optional<BasketElement> basketElFromDB = basketElementRepository.findByConsumerIdAndProductIdFetchProduct(consumerId, productId);
+        Optional<BasketElement> basketElFromDB = basketElementRepository.findByConsumerIdAndProductIdFetchProductNotOrdered(consumerId, productId);
         assertTrue(basketElFromDB.isPresent());
         assertTrue(basketElFromDB.get().getAmount() > 0);
         int amountProductsInBasket = basketElFromDB.get().getAmount();
@@ -418,7 +418,7 @@ public class BasketElementServiceIT extends IntegrationTestBase {
                 .productId(productId)
                 .amount(nonExistedBasketAmount)
                 .build();
-        Optional<BasketElement> basketElFromDB = basketElementRepository.findByConsumerIdAndProductIdFetchProduct(consumerId, productId);
+        Optional<BasketElement> basketElFromDB = basketElementRepository.findByConsumerIdAndProductIdFetchProductNotOrdered(consumerId, productId);
         assertTrue(basketElFromDB.isPresent());
         assertTrue(basketElFromDB.get().getAmount() > 0);
         String expectedExceptionMessage = "К сожалению товара: " +
@@ -429,7 +429,7 @@ public class BasketElementServiceIT extends IntegrationTestBase {
 
         Exception exception = assertThrows(InsufficientProductQuantityException.class, ()
                 -> basketElementService.addProductToBasket(consumerId, basketElementDto));
-        Optional<BasketElement> basketElAfterAdding = basketElementRepository.findByConsumerIdAndProductIdFetchProduct(consumerId, productId);
+        Optional<BasketElement> basketElAfterAdding = basketElementRepository.findByConsumerIdAndProductIdFetchProductNotOrdered(consumerId, productId);
 
         assertTrue(basketElAfterAdding.isPresent());
         assertEquals(basketElAfterAdding.get().getProduct().getId(), basketElementDto.getProductId());
@@ -439,7 +439,7 @@ public class BasketElementServiceIT extends IntegrationTestBase {
 
     @Test
     void deleteBasketElement() {
-        long consumerId = 5L;
+        long consumerId = 2L;
         long basketElementId = 10L;
         Optional<BasketElement> basketElementForDeletion = basketElementRepository.findById(basketElementId);
         assertTrue(basketElementForDeletion.isPresent());

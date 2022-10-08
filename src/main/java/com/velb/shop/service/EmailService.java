@@ -3,10 +3,11 @@ package com.velb.shop.service;
 import com.velb.shop.exception.OrderNotFoundException;
 import com.velb.shop.exception.ProductNotFoundException;
 import com.velb.shop.model.dto.ProductForMessageDto;
+import com.velb.shop.model.entity.BasketElement;
 import com.velb.shop.model.entity.Order;
 import com.velb.shop.model.entity.Product;
 import com.velb.shop.model.entity.User;
-import com.velb.shop.model.entity.auxiliary.OrderElement;
+import com.velb.shop.repository.BasketElementRepository;
 import com.velb.shop.repository.OrderRepository;
 import com.velb.shop.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
@@ -15,6 +16,7 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Set;
 
 @Service
@@ -23,6 +25,7 @@ public class EmailService {
     private final JavaMailSender emailSender;
     private final OrderRepository orderRepository;
     private final ProductRepository productRepository;
+    private final BasketElementRepository basketElementRepository;
 
     public void sendEmailAboutOrderCreating(Long orderId, String toAddress) {
 
@@ -81,14 +84,15 @@ public class EmailService {
         Order order = orderRepository.findById(orderId).orElseThrow(()
                 -> new OrderNotFoundException("Приносим свои извинения, но email о создании заказа вам отправлен не будет " +
                 "так как произошли проблемы на сервере; "));
+        List<BasketElement> orderContent = basketElementRepository.findAllByOrderId(orderId);
         StringBuilder stringBuilder = new StringBuilder();
-        for (OrderElement orderElement : order.getContent()) {
+        for (BasketElement basketElement : orderContent) {
             stringBuilder.append(" - ")
-                    .append(orderElement.getProductForOrder().getTitle())
+                    .append(basketElement.getProduct().getTitle())
                     .append(" - ")
-                    .append(orderElement.getAmount())
+                    .append(basketElement.getAmount())
                     .append(" - c общей стоимостью ")
-                    .append(orderElement.getProductForOrder().getPrice() * orderElement.getAmount())
+                    .append(basketElement.getProduct().getPrice() * basketElement.getAmount())
                     .append("рублей. \n");
         }
         return "Здравствуйте. Вы сделали в нашем магазине заказ на сумму " + order.getTotalCost() +

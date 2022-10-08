@@ -22,12 +22,11 @@ public class ScheduleService {
     @Transactional
     public void clearDeferredProducts() {
         List<BasketElement> basketElementsFromDeferredOrder = basketElementRepository.findAllByDeferredTimeBiggerThanTenMinutes(LocalDateTime.now().plusMinutes(10));
-        basketElementsFromDeferredOrder.forEach(basketElement ->
-        {
+        basketElementsFromDeferredOrder.forEach(basketElement -> {
             basketElement.setProductBookingTime(null);
             basketElement.getProduct().setAmount(
                     basketElement.getProduct().getAmount()
-                    + basketElement.getAmount());
+                            + basketElement.getAmount());
             productRepository.save(basketElement.getProduct());
         });
     }

@@ -1,6 +1,6 @@
 package com.velb.shop.model.dto;
 
-import com.velb.shop.model.entity.auxiliary.ConsumerOrderStatus;
+import com.velb.shop.model.entity.auxiliary.OrderStatus;
 import com.velb.shop.validation.ProductsAndAmount;
 import com.velb.shop.validation.ValueOfEnum;
 import lombok.AllArgsConstructor;
@@ -25,7 +25,7 @@ public class OrderUpdatingDto {
     @ProductsAndAmount
     private Map<Long, Integer> productsAndAmount;
 
-    @ValueOfEnum(enumClass = ConsumerOrderStatus.class,
+    @ValueOfEnum(enumClass = OrderStatus.class,
             message = "Не правильно установлен СТАТУС ЗАКАЗА для покупателя; ")
     private String consumerStatus;
 

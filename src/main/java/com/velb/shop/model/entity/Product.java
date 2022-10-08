@@ -9,7 +9,6 @@ import lombok.Setter;
 import org.hibernate.annotations.Type;
 import org.hibernate.annotations.TypeDef;
 
-import javax.persistence.CascadeType;
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
@@ -28,7 +27,7 @@ import java.util.List;
 @AllArgsConstructor
 @Builder
 @TypeDef(name = "ts_vector", typeClass = PostgreSQLTSVectorType.class)
-public class Product implements BaseEntity<Long> {
+public class Product {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -50,9 +49,8 @@ public class Product implements BaseEntity<Long> {
     @Type(type = "ts_vector")
     private String fulltext;
 
-    @OneToMany(mappedBy = "product", cascade = CascadeType.REMOVE)
-    @Builder.Default
-    private List<Hashtag> hashtags = new ArrayList<>();
+    @Column
+    private String hashtags;
 
     @OneToMany(mappedBy = "product")
     @Builder.Default

@@ -26,7 +26,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class User implements BaseEntity<Long> {
+public class User {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -55,7 +55,4 @@ public class User implements BaseEntity<Long> {
     @Builder.Default
     private List<Order> orders = new ArrayList<>();
 
-    @OneToMany(mappedBy = "consumer")
-    @Builder.Default
-    private List<BasketElement> basket = new ArrayList<>();
 }

@@ -22,50 +22,37 @@
         </rollback>
     </changeSet>
 
-    <changeSet id="09.05.2022--4--create-table-basket-elements" author="avelb">
-        <sqlFile path="db/changelog/v-1-0-0/09.05.2022--4--create-table-basket-elements.sql"/>
-        <rollback>
-            drop if exists table "basket_elements";
-        </rollback>
-    </changeSet>
-
-    <changeSet id="09.05.2022--5--create-table-orders" author="avelb">
-        <sqlFile path="db/changelog/v-1-0-0/09.05.2022--5--create-table-orders.sql"/>
+    <changeSet id="09.05.2022--4--create-table-orders" author="avelb">
+        <sqlFile path="db/changelog/v-1-0-0/09.05.2022--4--create-table-orders.sql"/>
         <rollback>
             drop if exists table "orders";
         </rollback>
     </changeSet>
 
-    <changeSet id="09.05.2022--6--create-table-order-audit" author="avelb">
-        <sqlFile path="db/changelog/v-1-0-0/09.05.2022--6--create-table-order-audit.sql"/>
+    <changeSet id="09.05.2022--5--create-table-basket-elements" author="avelb">
+        <sqlFile path="db/changelog/v-1-0-0/09.05.2022--5--create-table-basket-elements.sql"/>
         <rollback>
-            drop if exists table "order_audit";
+            drop if exists table "basket_elements";
         </rollback>
     </changeSet>
 
-    <changeSet id="09.05.2022--7--create-table-hashtags" author="avelb">
-        <sqlFile path="db/changelog/v-1-0-0/09.05.2022--7--create-table-hashtags.sql"/>
-        <rollback>
-            drop if exists table "hashtags";
-        </rollback>
-    </changeSet>
 
-    <changeSet id="09.05.2022--8--create-products-fts-trigger" author="avelb">
-        <sqlFile path="db/changelog/v-1-0-0/09.05.2022--8--create-products-fts-trigger.sql"/>
+    <changeSet id="09.05.2022--6--create-products-fts-trigger" author="avelb">
+        <sqlFile path="db/changelog/v-1-0-0/09.05.2022--6--create-products-fts-trigger.sql"/>
         <rollback>
             drop if exists trigger "products-fts-trigger";
         </rollback>
     </changeSet>
 
-    <changeSet id="09.05.2022--9--create-products-fts-index" author="avelb">
-        <sqlFile path="db/changelog/v-1-0-0/09.05.2022--9--create-products-fts-index.sql"/>
+    <changeSet id="09.05.2022--7--create-products-fts-index" author="avelb">
+        <sqlFile path="db/changelog/v-1-0-0/09.05.2022--7--create-products-fts-index.sql"/>
         <rollback>
             drop if exists index "products_fts_gin_index";
         </rollback>
     </changeSet>
 
-    <changeSet id="09.05.2022--10--set-lock-timeout" author="avelb">
-        <sqlFile path="db/changelog/v-1-0-0/09.05.2022--10--set-lock-timeout.sql"/>
+    <changeSet id="09.05.2022--8--set-lock-timeout" author="avelb">
+        <sqlFile path="db/changelog/v-1-0-0/09.05.2022--8--set-lock-timeout.sql"/>
         <rollback/>
     </changeSet>
 

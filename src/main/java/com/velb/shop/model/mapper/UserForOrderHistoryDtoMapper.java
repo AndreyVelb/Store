@@ -1,13 +1,13 @@
 package com.velb.shop.model.mapper;
 
-import com.velb.shop.model.dto.ProductForOrderDto;
-import com.velb.shop.model.entity.Product;
+import com.velb.shop.model.dto.UserForOrderHistoryDto;
+import com.velb.shop.model.entity.User;
 import org.mapstruct.InjectionStrategy;
 import org.mapstruct.Mapper;
 
 @Mapper(componentModel = "spring", injectionStrategy = InjectionStrategy.CONSTRUCTOR)
-public interface ProductForOrderMapper {
+public interface UserForOrderHistoryDtoMapper {
 
-    ProductForOrderDto map(Product product);
+    UserForOrderHistoryDto map(User user);
 
 }

@@ -19,5 +19,10 @@
       "name": "spring.schedule.cron_interval",
       "type": "java.lang.String",
       "description": "Description for spring.schedule.cron_interval."
+    },
+    {
+      "name": "db.username",
+      "type": "java.lang.String",
+      "description": "Description for db.username."
     }
   ] }

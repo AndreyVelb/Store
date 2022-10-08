@@ -24,7 +24,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class BasketElement implements BaseEntity<Long> {
+public class BasketElement {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -32,7 +32,6 @@ public class BasketElement implements BaseEntity<Long> {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "consumer_id", nullable = false)
-
     private User consumer;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -45,8 +44,11 @@ public class BasketElement implements BaseEntity<Long> {
     @Column(name = "product_booking_time")
     private LocalDateTime productBookingTime;
 
-    public void setConsumer(User consumer) {
-        this.consumer = consumer;
-        this.consumer.getBasket().add(this);
-    }
+    @Column(name = "price_in_order")
+    private Integer priceInOrder;
+
+    @JoinColumn(name = "order_id")
+    @ManyToOne(fetch = FetchType.LAZY)
+    private Order order;
+
 }

@@ -8,8 +8,8 @@ public interface ProductForSearchDto {
 
     String getDescription();
 
-    Integer getPrice();
-
     Integer getAmount();
+
+    Integer getPrice();
 
 }

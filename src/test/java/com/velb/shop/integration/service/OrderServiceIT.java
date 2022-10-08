@@ -7,30 +7,20 @@ import com.velb.shop.exception.ProductNotFoundException;
 import com.velb.shop.exception.UserNotFoundException;
 import com.velb.shop.integration.IntegrationTestBase;
 import com.velb.shop.model.dto.OrderCreatingDto;
-import com.velb.shop.model.dto.OrderResponseDto;
 import com.velb.shop.model.dto.OrderUpdatingDto;
 import com.velb.shop.model.dto.PreparedOrderForShowUserDto;
 import com.velb.shop.model.entity.BasketElement;
 import com.velb.shop.model.entity.Order;
-import com.velb.shop.model.entity.OrderAuditRecord;
 import com.velb.shop.model.entity.Product;
-import com.velb.shop.model.entity.auxiliary.AdminOrderStatus;
-import com.velb.shop.model.entity.auxiliary.ConsumerOrderStatus;
-import com.velb.shop.model.entity.auxiliary.OrderElement;
-import com.velb.shop.model.mapper.ProductForOrderMapper;
+import com.velb.shop.model.entity.auxiliary.OrderStatus;
 import com.velb.shop.repository.BasketElementRepository;
-import com.velb.shop.repository.OrderAuditRepository;
 import com.velb.shop.repository.OrderRepository;
 import com.velb.shop.repository.ProductRepository;
 import com.velb.shop.service.OrderService;
 import lombok.RequiredArgsConstructor;
 import org.junit.jupiter.api.Test;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -50,13 +40,12 @@ public class OrderServiceIT extends IntegrationTestBase {
     private final BasketElementRepository basketElementRepository;
     private final ProductRepository productRepository;
     private final OrderRepository orderRepository;
-    private final OrderAuditRepository orderAuditRepository;
-    private final ProductForOrderMapper productForOrderMapper;
 
     @Test
     void prepareOrderByConsumer() {
         long consumerId = 2L;
-        List<BasketElement> consumersBasketBeforePreparing = basketElementRepository.findAllByUserIdFetchProduct(consumerId);
+        List<BasketElement> consumersBasketBeforePreparing =
+                basketElementRepository.findAllByConsumerIdFetchProductNotOrdered(consumerId);
         Map<Long, Integer> productsAmountMap = new HashMap<>();
         Map<Long, Integer> amountInBasketBeforePreparing = new HashMap<>();
         int expectedTotalCoast = 0;
@@ -69,7 +58,8 @@ public class OrderServiceIT extends IntegrationTestBase {
 
         PreparedOrderForShowUserDto preparedOrder = orderService.prepareOrderByConsumer(consumerId);
 
-        List<BasketElement> consumersBasketAfterPreparing = basketElementRepository.findAllByUserIdFetchProduct(consumerId);
+        List<BasketElement> consumersBasketAfterPreparing =
+                basketElementRepository.findAllByConsumerIdFetchProductNotOrdered(consumerId);
 
         assertEquals(consumersBasketBeforePreparing.size(), consumersBasketAfterPreparing.size());
         assertEquals(expectedTotalCoast, preparedOrder.getTotalCoast());
@@ -85,7 +75,8 @@ public class OrderServiceIT extends IntegrationTestBase {
     @Test
     void prepareOrderByConsumerWithMessageForUser() {
         long consumerId = 4L;
-        List<BasketElement> consumersBasketBeforePreparing = basketElementRepository.findAllByUserIdFetchProduct(consumerId);
+        List<BasketElement> consumersBasketBeforePreparing =
+                basketElementRepository.findAllByConsumerIdFetchProductNotOrdered(consumerId);
         Map<Long, Integer> productsAmountMap = new HashMap<>();
         Map<Long, Integer> amountInBasketBeforePreparingMap = new HashMap<>();
         int expectedTotalCoast = 0;
@@ -106,7 +97,8 @@ public class OrderServiceIT extends IntegrationTestBase {
 
         PreparedOrderForShowUserDto preparedOrder = orderService.prepareOrderByConsumer(consumerId);
 
-        List<BasketElement> consumersBasketAfterPreparing = basketElementRepository.findAllByUserIdFetchProduct(consumerId);
+        List<BasketElement> consumersBasketAfterPreparing =
+                basketElementRepository.findAllByConsumerIdFetchProductNotOrdered(consumerId);
 
         assertEquals(consumersBasketBeforePreparing.size(), consumersBasketAfterPreparing.size());
         assertEquals(expectedTotalCoast, preparedOrder.getTotalCoast());
@@ -151,29 +143,37 @@ public class OrderServiceIT extends IntegrationTestBase {
     @Test
     void makeOrderByConsumer() {
         long consumerId = 2L;
-        List<BasketElement> consumersBasketBeforeOrdering = basketElementRepository.findAllByUserIdFetchProduct(consumerId);
-        List<OrderElement> expectedOrderContent = new ArrayList<>();
+        List<BasketElement> consumersBasketBeforeOrdering = basketElementRepository.findAllByConsumerIdNotOrdered(consumerId);
         int expectedTotalCoast = 0;
         for (BasketElement basketElement : consumersBasketBeforeOrdering) {
             expectedTotalCoast += basketElement.getAmount() * basketElement.getProduct().getPrice();
-            expectedOrderContent.add(
-                    OrderElement.builder()
-                            .productForOrder(productForOrderMapper.map(basketElement.getProduct()))
-                            .amount(basketElement.getAmount())
-                            .build());
         }
+        List<BasketElement> expectedOrderContent = basketElementRepository.findAllByConsumerIdNotOrdered(consumerId);
+        expectedOrderContent.forEach(basketElement -> basketElement.setPriceInOrder(basketElement.getProduct().getPrice()));
 
         Long orderId = orderService.makeOrderByConsumer(consumerId);
+        List<BasketElement> actualOrderContent = basketElementRepository.findAllByOrderId(orderId);
 
         Optional<Order> madeOrder = orderRepository.findById(orderId);
-        List<BasketElement> consumersBasketAfterOrdering = basketElementRepository.findAllByUserId(consumerId);
         assertTrue(madeOrder.isPresent());
         assertEquals(consumerId, madeOrder.get().getConsumer().getId());
-        assertEquals(expectedOrderContent, madeOrder.get().getContent());
+        assertEquals(expectedOrderContent.size(), actualOrderContent.size());
         assertEquals(expectedTotalCoast, madeOrder.get().getTotalCost());
-        assertEquals(ConsumerOrderStatus.IN_PROCESS, madeOrder.get().getConsumerOrderStatus());
+        assertEquals(OrderStatus.IN_PROCESS, madeOrder.get().getOrderStatus());
+        assertEquals(consumerId, madeOrder.get().getLastUser().getId());
         assertNotNull(madeOrder.get().getDate());
-        assertTrue(consumersBasketAfterOrdering.isEmpty());
+
+        boolean isPresent = false;
+        for (BasketElement expectedBasketEl : expectedOrderContent) {
+            for (BasketElement actualBasketEl : actualOrderContent) {
+                if (actualBasketEl == expectedBasketEl) {
+                    isPresent = true;
+                    break;
+                }
+            }
+            assertTrue(isPresent);
+            isPresent = false;
+        }
     }
 
     @Test
@@ -201,20 +201,20 @@ public class OrderServiceIT extends IntegrationTestBase {
     @Test
     void cancelOrderCreationByConsumer() {
         long consumerId = 2L;
-        List<BasketElement> basketBeforePreparingOrder = basketElementRepository.findAllByUserId(consumerId);
+        List<BasketElement> basketBeforePreparingOrder = basketElementRepository.findAllByConsumerIdNotOrdered(consumerId);
         Map<Long, Integer> productsAmountMap = new HashMap<>();
         for (BasketElement basketElement : basketBeforePreparingOrder) {
             productsAmountMap.put(basketElement.getProduct().getId(), basketElement.getProduct().getAmount());
         }
 
         orderService.prepareOrderByConsumer(consumerId);
-        List<BasketElement> basketAfterPreparingOrder = basketElementRepository.findAllByUserId(consumerId);
+        List<BasketElement> basketAfterPreparingOrder = basketElementRepository.findAllByConsumerIdNotOrdered(consumerId);
         for (BasketElement basketElement : basketAfterPreparingOrder) {
             assertNotNull(basketElement.getProductBookingTime());
         }
 
         orderService.cancelOrderCreationByConsumer(consumerId);
-        List<BasketElement> basketAfterCanceling = basketElementRepository.findAllByUserId(consumerId);
+        List<BasketElement> basketAfterCanceling = basketElementRepository.findAllByConsumerIdNotOrdered(consumerId);
 
         for (BasketElement basketElement : basketAfterCanceling) {
             assertNull(basketElement.getProductBookingTime());
@@ -233,16 +233,6 @@ public class OrderServiceIT extends IntegrationTestBase {
                 -> orderService.cancelOrderCreationByConsumer(nonExistedConsumerId));
 
         assertTrue(exception.getMessage().contains(expectedExceptionMessage));
-    }
-
-    @Test
-    void getAllOrdersByAdmin() {
-        Pageable pageable = PageRequest.of(0, 2);
-        long expectedCountOfOrders = orderRepository.findAll().size();
-
-        Page<OrderResponseDto> orderResponseDtoPage = orderService.getAllOrdersByAdmin(pageable);
-
-        assertEquals(expectedCountOfOrders, orderResponseDtoPage.getTotalElements());
     }
 
     @Test
@@ -272,10 +262,6 @@ public class OrderServiceIT extends IntegrationTestBase {
                 .consumerId(consumerId)
                 .productsAndAmount(productsAndAmount)
                 .build();
-        List<OrderAuditRecord> orderAuditBeforeCreating = orderAuditRepository.findAllByConsumerIdAndAdminIdAndAdminStatus(
-                consumerId,
-                adminId,
-                AdminOrderStatus.CREATED);
 
         Long orderId = orderService.createNewOrderByAdmin(adminId, orderCreatingDto);
 
@@ -283,22 +269,19 @@ public class OrderServiceIT extends IntegrationTestBase {
         assertTrue(createdOrder.isPresent());
         assertEquals(consumerId, createdOrder.get().getConsumer().getId());
         assertEquals(expectedTotalCoast, createdOrder.get().getTotalCost());
-        assertEquals(ConsumerOrderStatus.IN_PROCESS, createdOrder.get().getConsumerOrderStatus());
+        assertEquals(OrderStatus.IN_PROCESS, createdOrder.get().getOrderStatus());
+        assertEquals(createdOrder.get().getLastUser().getId(), adminId);
 
-        List<OrderAuditRecord> orderAuditAfterCreating = orderAuditRepository.findAllByConsumerIdAndAdminIdAndAdminStatus(
-                consumerId,
-                adminId,
-                AdminOrderStatus.CREATED);
-        List<OrderElement> orderContent = createdOrder.get().getContent();
-        for (OrderElement orderElement : orderContent) {
-            if (orderElement.getProductForOrder().getId() == productId2) {
-                assertEquals(productsAndAmount.get(productId2), orderElement.getAmount());
+        List<BasketElement> orderContent = basketElementRepository.findAllByOrderId(orderId);
+        for (BasketElement basketElement : orderContent) {
+            if (basketElement.getProduct().getId() == productId2) {
+                assertEquals(productsAndAmount.get(productId2), basketElement.getAmount());
             }
-            if (orderElement.getProductForOrder().getId() == productId3) {
-                assertEquals(productsAndAmount.get(productId3), orderElement.getAmount());
+            if (basketElement.getProduct().getId() == productId3) {
+                assertEquals(productsAndAmount.get(productId3), basketElement.getAmount());
             }
-            if (orderElement.getProductForOrder().getId() == productId8) {
-                assertEquals(productsAndAmount.get(productId8), orderElement.getAmount());
+            if (basketElement.getProduct().getId() == productId8) {
+                assertEquals(productsAndAmount.get(productId8), basketElement.getAmount());
             }
         }
         assertEquals(productsAndAmount.size(), orderContent.size());
@@ -312,7 +295,6 @@ public class OrderServiceIT extends IntegrationTestBase {
         assertEquals(product2Amount - productsAndAmount.get(productId2), productAfterCreating2.get().getAmount());
         assertEquals(product3Amount - productsAndAmount.get(productId3), productAfterCreating3.get().getAmount());
         assertEquals(product8Amount - productsAndAmount.get(productId8), productAfterCreating8.get().getAmount());
-        assertEquals(orderAuditBeforeCreating.size() + 1, orderAuditAfterCreating.size());
     }
 
     @Test
@@ -330,10 +312,6 @@ public class OrderServiceIT extends IntegrationTestBase {
         assertTrue(nonExistedProduct2.isEmpty());
         int product1Amount = product1.get().getAmount();
         int product2Amount = product2.get().getAmount();
-        List<OrderAuditRecord> orderAuditBeforeCreating = orderAuditRepository.findAllByConsumerIdAndAdminIdAndAdminStatus(
-                consumerId,
-                adminId,
-                AdminOrderStatus.CREATED);
 
         Map<Long, Integer> productsAndAmount = Map.of(
                 productId1, 16,
@@ -350,17 +328,12 @@ public class OrderServiceIT extends IntegrationTestBase {
 
         Optional<Product> product1AfterCreating = productRepository.findById(productId1);
         Optional<Product> product2AfterCreating = productRepository.findById(productId2);
-        List<OrderAuditRecord> orderAuditAfterCreating = orderAuditRepository.findAllByConsumerIdAndAdminIdAndAdminStatus(
-                consumerId,
-                adminId,
-                AdminOrderStatus.CREATED);
 
         assertTrue(exception.getMessage().contains(expectedExceptionMessage));
         assertTrue(product1AfterCreating.isPresent());
         assertTrue(product2AfterCreating.isPresent());
         assertEquals(product1Amount, product1AfterCreating.get().getAmount());
         assertEquals(product2Amount, product2AfterCreating.get().getAmount());
-        assertEquals(orderAuditBeforeCreating.size(), orderAuditAfterCreating.size());
     }
 
     @Test
@@ -394,10 +367,6 @@ public class OrderServiceIT extends IntegrationTestBase {
         String expectedExceptionMessage2 = createResponseAboutNotEnoughAmountOfProduct(
                 product8.get(),
                 productsAndAmount.get(productId8));
-        List<OrderAuditRecord> orderAuditBeforeCreating = orderAuditRepository.findAllByConsumerIdAndAdminIdAndAdminStatus(
-                consumerId,
-                adminId,
-                AdminOrderStatus.CREATED);
 
         Exception exception = assertThrows(InsufficientProductQuantityException.class, ()
                 -> orderService.createNewOrderByAdmin(adminId, orderCreatingDto));
@@ -405,10 +374,6 @@ public class OrderServiceIT extends IntegrationTestBase {
         Optional<Product> product2AfterCreating = productRepository.findById(productId2);
         Optional<Product> product8AfterCreating = productRepository.findById(productId8);
         Optional<Product> product10AfterCreating = productRepository.findById(productId10);
-        List<OrderAuditRecord> orderAuditAfterCreating = orderAuditRepository.findAllByConsumerIdAndAdminIdAndAdminStatus(
-                consumerId,
-                adminId,
-                AdminOrderStatus.CREATED);
 
         assertTrue(exception.getMessage().contains(expectedExceptionMessage1));
         assertTrue(exception.getMessage().contains(expectedExceptionMessage2));
@@ -420,7 +385,6 @@ public class OrderServiceIT extends IntegrationTestBase {
         assertEquals(product2Amount, product2AfterCreating.get().getAmount());
         assertEquals(product8Amount, product8AfterCreating.get().getAmount());
         assertEquals(product10Amount, product10AfterCreating.get().getAmount());
-        assertEquals(orderAuditBeforeCreating.size(), orderAuditAfterCreating.size());
     }
 
     @Test
@@ -432,21 +396,14 @@ public class OrderServiceIT extends IntegrationTestBase {
                 .consumerId(nonExistedConsumerId)
                 .productsAndAmount(productsAndAmount)
                 .build();
-        List<OrderAuditRecord> orderAuditBeforeCreating = orderAuditRepository.findAllByConsumerIdAndAdminIdAndAdminStatus(
-                nonExistedConsumerId,
-                adminId,
-                AdminOrderStatus.CREATED);
+
         String expectedExceptionMessage = "Вы выбрали некорректного покупателя; ";
 
         Exception exception = assertThrows(UserNotFoundException.class, ()
                 -> orderService.createNewOrderByAdmin(adminId, orderCreatingDto));
 
-        List<OrderAuditRecord> orderAuditAfterCreating = orderAuditRepository.findAllByConsumerIdAndAdminIdAndAdminStatus(
-                nonExistedConsumerId,
-                adminId,
-                AdminOrderStatus.CREATED);
+
         assertTrue(exception.getMessage().contains(expectedExceptionMessage));
-        assertEquals(orderAuditBeforeCreating.size(), orderAuditAfterCreating.size());
     }
 
     @Test
@@ -458,21 +415,14 @@ public class OrderServiceIT extends IntegrationTestBase {
                 .consumerId(consumerId)
                 .productsAndAmount(productsAndAmount)
                 .build();
-        List<OrderAuditRecord> orderAuditBeforeCreating = orderAuditRepository.findAllByConsumerIdAndAdminIdAndAdminStatus(
-                consumerId,
-                nonExistedAdminId,
-                AdminOrderStatus.CREATED);
+
         String expectedExceptionMessage = "Вы вошли в систему как некорректный пользователь; ";
 
         Exception exception = assertThrows(UserNotFoundException.class, ()
                 -> orderService.createNewOrderByAdmin(nonExistedAdminId, orderCreatingDto));
 
-        List<OrderAuditRecord> orderAuditAfterCreating = orderAuditRepository.findAllByConsumerIdAndAdminIdAndAdminStatus(
-                consumerId,
-                nonExistedAdminId,
-                AdminOrderStatus.CREATED);
+
         assertTrue(exception.getMessage().contains(expectedExceptionMessage));
-        assertEquals(orderAuditBeforeCreating.size(), orderAuditAfterCreating.size());
     }
 
     @Test
@@ -494,36 +444,30 @@ public class OrderServiceIT extends IntegrationTestBase {
         Optional<Order> orderForUpdating = orderRepository.findById(orderId);
         assertTrue(orderForUpdating.isPresent());
         Map<Long, Integer> expectedAmountAfterUpdating = new HashMap<>();
-        for (OrderElement orderElement : orderForUpdating.get().getContent()) {
-            expectedAmountAfterUpdating.put(orderElement.getProductForOrder().getId(), orderElement.getAmount());
+        List<BasketElement> orderContentBeforeUpdating = basketElementRepository.findAllByOrderId(orderId);
+        for (BasketElement basketElement : orderContentBeforeUpdating) {
+            expectedAmountAfterUpdating.put(basketElement.getProduct().getId(), basketElement.getAmount());
             for (Map.Entry<Long, Integer> entryUpdatingDto : productsAndAmount.entrySet()) {
-                if (Objects.equals(orderElement.getProductForOrder().getId(), entryUpdatingDto.getKey())) {
+                if (Objects.equals(basketElement.getProduct().getId(), entryUpdatingDto.getKey())) {
                     expectedAmountAfterUpdating.put(entryUpdatingDto.getKey(), entryUpdatingDto.getValue());
                 }
             }
         }
-        List<OrderAuditRecord> orderAuditBeforeUpdating = orderAuditRepository.findAllByConsumerIdAndAdminIdAndAdminStatus(
-                orderForUpdating.get().getConsumer().getId(),
-                adminId,
-                AdminOrderStatus.CHANGED);
 
         orderService.updateOrderByAdmin(adminId, orderUpdatingDto);
 
         Optional<Order> orderAfterUpdating = orderRepository.findById(orderId);
-        List<OrderAuditRecord> orderAuditAfterUpdating = orderAuditRepository.findAllByConsumerIdAndAdminIdAndAdminStatus(
-                orderForUpdating.get().getConsumer().getId(),
-                adminId,
-                AdminOrderStatus.CHANGED);
+
         assertTrue(orderAfterUpdating.isPresent());
-        for (OrderElement orderElement : orderAfterUpdating.get().getContent()) {
+        List<BasketElement> orderContentAfterUpdating = basketElementRepository.findAllByOrderId(orderId);
+        for (BasketElement basketElement : orderContentAfterUpdating) {
             for (Map.Entry<Long, Integer> entry : expectedAmountAfterUpdating.entrySet()) {
-                if (orderElement.getProductForOrder().getId().equals(entry.getKey())) {
-                    assertEquals(entry.getValue(), orderElement.getAmount());
+                if (basketElement.getProduct().getId().equals(entry.getKey())) {
+                    assertEquals(entry.getValue(), basketElement.getAmount());
                 }
             }
         }
-        assertEquals(orderAfterUpdating.get().getConsumerOrderStatus(), ConsumerOrderStatus.SENT);
-        assertEquals(orderAuditBeforeUpdating.size() + 1, orderAuditAfterUpdating.size());
+        assertEquals(orderAfterUpdating.get().getOrderStatus(), OrderStatus.SENT);
     }
 
     @Test
@@ -532,6 +476,8 @@ public class OrderServiceIT extends IntegrationTestBase {
         long orderId = 3L;
         long productId1 = 1L;
         long productId2 = 2L;
+        long basketElementId1 = 1L;
+        long basketElementId6 = 6L;
         int amountProduct1ForOrder = 3;
         int amountProduct2ForOrder = 1000000000;
         Map<Long, Integer> productsAndAmount = Map.of(
@@ -551,20 +497,22 @@ public class OrderServiceIT extends IntegrationTestBase {
         String expectedExceptionMessage = createResponseAboutNotEnoughAmountOfProduct(product2.get(), amountProduct2ForOrder);
         int product1Amount = product1.get().getAmount();
         int product2Amount = product2.get().getAmount();
-        List<OrderAuditRecord> orderAuditBeforeUpdating = orderAuditRepository.findAllByConsumerIdAndAdminIdAndAdminStatus(
-                orderForUpdating.get().getConsumer().getId(),
-                adminId,
-                AdminOrderStatus.CHANGED);
+        Optional<BasketElement> basketElement1 = basketElementRepository.findById(basketElementId1);
+        Optional<BasketElement> basketElement6 = basketElementRepository.findById(basketElementId6);
+        Optional<Order> orderForUpdate = orderRepository.findById(orderId);
+        assertTrue(orderForUpdate.isPresent());
+        assertTrue(basketElement1.isPresent());
+        assertTrue(basketElement6.isPresent());
+        basketElement1.get().setOrder(orderForUpdate.get());
+        basketElement1.get().setPriceInOrder(basketElement1.get().getProduct().getPrice());
+        basketElement6.get().setOrder(orderForUpdate.get());
+        basketElement6.get().setPriceInOrder(basketElement6.get().getProduct().getPrice());
 
         Exception exception = assertThrows(InsufficientProductQuantityException.class, ()
                 -> orderService.updateOrderByAdmin(adminId, orderUpdatingDto));
 
         Optional<Product> product1AfterUpdating = productRepository.findById(productId1);
         Optional<Product> product2AfterUpdating = productRepository.findById(productId2);
-        List<OrderAuditRecord> orderAuditAfterUpdating = orderAuditRepository.findAllByConsumerIdAndAdminIdAndAdminStatus(
-                orderForUpdating.get().getConsumer().getId(),
-                adminId,
-                AdminOrderStatus.CHANGED);
 
         assertTrue(product1AfterUpdating.isPresent());
         assertTrue(product2AfterUpdating.isPresent());
@@ -572,7 +520,6 @@ public class OrderServiceIT extends IntegrationTestBase {
         assertTrue(exception.getMessage().contains(expectedExceptionMessage));
         assertEquals(product1Amount, product1AfterUpdating.get().getAmount());
         assertEquals(product2Amount, product2AfterUpdating.get().getAmount());
-        assertEquals(orderAuditBeforeUpdating.size(), orderAuditAfterUpdating.size());
     }
 
     @Test
@@ -606,20 +553,11 @@ public class OrderServiceIT extends IntegrationTestBase {
         Optional<Order> orderForUpdating = orderRepository.findById(orderId);
         assertTrue(orderForUpdating.isPresent());
         String expectedExceptionMessage = "Вы вошли в систему как некорректный пользователь; ";
-        List<OrderAuditRecord> orderAuditBeforeUpdating = orderAuditRepository.findAllByConsumerIdAndAdminIdAndAdminStatus(
-                orderForUpdating.get().getConsumer().getId(),
-                nonExistedAdminId,
-                AdminOrderStatus.CHANGED);
 
         Exception exception = assertThrows(UserNotFoundException.class, ()
                 -> orderService.updateOrderByAdmin(nonExistedAdminId, orderUpdatingDto));
 
-        List<OrderAuditRecord> orderAuditAfterUpdating = orderAuditRepository.findAllByConsumerIdAndAdminIdAndAdminStatus(
-                orderForUpdating.get().getConsumer().getId(),
-                nonExistedAdminId,
-                AdminOrderStatus.CHANGED);
         assertTrue(exception.getMessage().contains(expectedExceptionMessage));
-        assertEquals(orderAuditBeforeUpdating.size(), orderAuditAfterUpdating.size());
     }
 
     @Test
@@ -642,23 +580,15 @@ public class OrderServiceIT extends IntegrationTestBase {
         assertTrue(product1.isPresent());
         assertTrue(nonExistingProduct.isEmpty());
         int product1Amount = product1.get().getAmount();
-        List<OrderAuditRecord> orderAuditBeforeUpdating = orderAuditRepository.findAllByConsumerIdAndAdminIdAndAdminStatus(
-                orderForUpdating.get().getConsumer().getId(),
-                adminId,
-                AdminOrderStatus.CHANGED);
 
         Exception exception = assertThrows(ProductNotFoundException.class, ()
                 -> orderService.updateOrderByAdmin(adminId, orderUpdatingDto));
 
         Optional<Product> product1AfterUpdating = productRepository.findById(productId1);
-        List<OrderAuditRecord> orderAuditAfterUpdating = orderAuditRepository.findAllByConsumerIdAndAdminIdAndAdminStatus(
-                orderForUpdating.get().getConsumer().getId(),
-                adminId,
-                AdminOrderStatus.CHANGED);
+
         assertTrue(product1AfterUpdating.isPresent());
         assertTrue(exception.getMessage().contains(expectedExceptionMessage));
         assertEquals(product1Amount, product1AfterUpdating.get().getAmount());
-        assertEquals(orderAuditBeforeUpdating.size(), orderAuditAfterUpdating.size());
     }
 
     @Test
@@ -667,20 +597,13 @@ public class OrderServiceIT extends IntegrationTestBase {
         long orderId = 3L;
         Optional<Order> orderForDeleting = orderRepository.findById(orderId);
         assertTrue(orderForDeleting.isPresent());
-        List<OrderAuditRecord> orderAuditBeforeDeleting = orderAuditRepository.findAllByConsumerIdAndAdminIdAndAdminStatus(
-                orderForDeleting.get().getConsumer().getId(),
-                adminId,
-                AdminOrderStatus.DELETED);
 
         orderService.deleteOrderByAdmin(adminId, orderId);
 
         Optional<Order> orderAfterDeleting = orderRepository.findById(orderId);
-        List<OrderAuditRecord> orderAuditAfterDeleting = orderAuditRepository.findAllByConsumerIdAndAdminIdAndAdminStatus(
-                orderForDeleting.get().getConsumer().getId(),
-                adminId,
-                AdminOrderStatus.DELETED);
-        assertTrue(orderAfterDeleting.isEmpty());
-        assertEquals(orderAuditBeforeDeleting.size() + 1, orderAuditAfterDeleting.size());
+
+        assertTrue(orderAfterDeleting.isPresent());
+        assertEquals(OrderStatus.DELETED, orderAfterDeleting.get().getOrderStatus());
     }
 
     @Test
@@ -701,10 +624,6 @@ public class OrderServiceIT extends IntegrationTestBase {
         long orderId = 3L;
         Optional<Order> orderForDeleting = orderRepository.findById(orderId);
         assertTrue(orderForDeleting.isPresent());
-        List<OrderAuditRecord> orderAuditBeforeDeleting = orderAuditRepository.findAllByConsumerIdAndAdminIdAndAdminStatus(
-                orderForDeleting.get().getConsumer().getId(),
-                nonExistedAdminId,
-                AdminOrderStatus.DELETED);
 
         String expectedExceptionMessage = "Вы вошли в систему как некорректный пользователь; ";
 
@@ -712,13 +631,9 @@ public class OrderServiceIT extends IntegrationTestBase {
                 -> orderService.deleteOrderByAdmin(nonExistedAdminId, orderId));
 
         Optional<Order> orderAfterDeleting = orderRepository.findById(orderId);
-        List<OrderAuditRecord> orderAuditAfterDeleting = orderAuditRepository.findAllByConsumerIdAndAdminIdAndAdminStatus(
-                orderForDeleting.get().getConsumer().getId(),
-                nonExistedAdminId,
-                AdminOrderStatus.DELETED);
+
         assertTrue(orderAfterDeleting.isPresent());
         assertTrue(exception.getMessage().contains(expectedExceptionMessage));
-        assertEquals(orderAuditBeforeDeleting.size(), orderAuditAfterDeleting.size());
     }
 
     private String createResponseAboutNotEnoughAmountOfProduct(Product product, Integer amountInUsersBasket) {

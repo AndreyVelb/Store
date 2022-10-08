@@ -9,7 +9,10 @@ import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Data
 @NoArgsConstructor
@@ -34,5 +37,5 @@ public class ProductUpdatingDto {
     @NotNull(message = " Поле РАЗРЕШЕНИЕ НА ИЗМЕНЕНИЕ не может быть пустым; ")
     private boolean canBeUpdated;
 
-    private List<String> hashtagsAsString;
+    private List<String> hashtagsAsString = new ArrayList<>();
 }

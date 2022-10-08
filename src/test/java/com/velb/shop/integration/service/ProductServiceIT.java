@@ -8,16 +8,13 @@ import com.velb.shop.model.dto.ProductCreatingDto;
 import com.velb.shop.model.dto.ProductDeletingDto;
 import com.velb.shop.model.dto.ProductUpdatingDto;
 import com.velb.shop.model.entity.BasketElement;
-import com.velb.shop.model.entity.Hashtag;
 import com.velb.shop.model.entity.Product;
 import com.velb.shop.repository.BasketElementRepository;
-import com.velb.shop.repository.HashtagRepository;
 import com.velb.shop.repository.ProductRepository;
 import com.velb.shop.service.ProductService;
 import lombok.RequiredArgsConstructor;
 import org.junit.jupiter.api.Test;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -31,7 +28,6 @@ public class ProductServiceIT extends IntegrationTestBase {
     private final ProductService productService;
     private final BasketElementRepository basketElementRepository;
     private final ProductRepository productRepository;
-    private final HashtagRepository hashtagRepository;
 
     @Test
     void createNewProduct() {
@@ -43,7 +39,8 @@ public class ProductServiceIT extends IntegrationTestBase {
                 .amount(1000)
                 .hashtags(hashtagsAsString)
                 .build();
-        Long newProductId = productService.createNewProduct(creatingDto);
+
+        Long newProductId = productService.createProduct(creatingDto);
 
         Optional<Product> newProduct = productRepository.findById(newProductId);
         assertTrue(newProduct.isPresent());
@@ -51,13 +48,6 @@ public class ProductServiceIT extends IntegrationTestBase {
         assertEquals(creatingDto.getDescription(), newProduct.get().getDescription());
         assertEquals(creatingDto.getAmount(), newProduct.get().getAmount());
         assertEquals(creatingDto.getPrice(), newProduct.get().getPrice());
-        List<String> newProductHashtagsAsString = new ArrayList<>();
-        newProduct.get().getHashtags().forEach(hashtag ->
-                newProductHashtagsAsString.add(hashtag.getHashtag()));
-        List<Hashtag> hashtags = hashtagRepository.findAllByProductId(newProductId);
-        hashtags.forEach(hashtag ->
-                newProductHashtagsAsString.add(hashtag.getHashtag()));
-        assertEquals(creatingDto.getHashtags(), newProductHashtagsAsString);
     }
 
     @Test
@@ -74,10 +64,6 @@ public class ProductServiceIT extends IntegrationTestBase {
                 .hashtagsAsString(hashtags)
                 .price(20)
                 .build();
-        List<String> expectedHashtagsAsString = new ArrayList<>();
-        productBeforeUpdating.get().getHashtags().forEach(hashtag ->
-                expectedHashtagsAsString.add(hashtag.getHashtag()));
-        expectedHashtagsAsString.addAll(hashtags);
 
         productService.updateProduct(updatingDto);
 
@@ -86,11 +72,6 @@ public class ProductServiceIT extends IntegrationTestBase {
         assertEquals(updatingDto.getTitle(), productAfterUpdating.get().getTitle());
         assertEquals(updatingDto.getPrice(), productAfterUpdating.get().getPrice());
         assertEquals(productBeforeUpdating.get().getDescription(), productBeforeUpdating.get().getDescription());
-        List<Hashtag> hashtagsOfUpdatedProduct = hashtagRepository.findAllByProductId(productId);
-        List<String> hashtagsAsStringAfterUpdating = new ArrayList<>();
-        hashtagsOfUpdatedProduct.forEach(hashtag ->
-                hashtagsAsStringAfterUpdating.add(hashtag.getHashtag()));
-        assertEquals(expectedHashtagsAsString, hashtagsAsStringAfterUpdating);
     }
 
     @Test
@@ -107,10 +88,6 @@ public class ProductServiceIT extends IntegrationTestBase {
                 .price(20)
                 .hashtagsAsString(hashtags)
                 .build();
-        List<String> expectedHashtagsAsString = new ArrayList<>();
-        productBeforeUpdating.get().getHashtags().forEach(hashtag ->
-                expectedHashtagsAsString.add(hashtag.getHashtag()));
-        expectedHashtagsAsString.addAll(hashtags);
 
         productService.updateProduct(updatingDto);
 
@@ -119,11 +96,6 @@ public class ProductServiceIT extends IntegrationTestBase {
         assertEquals(updatingDto.getTitle(), productAfterUpdating.get().getTitle());
         assertEquals(updatingDto.getPrice(), productAfterUpdating.get().getPrice());
         assertEquals(productBeforeUpdating.get().getDescription(), productBeforeUpdating.get().getDescription());
-        List<Hashtag> hashtagsOfUpdatedProduct = hashtagRepository.findAllByProductId(productId);
-        List<String> hashtagsAsStringAfterUpdating = new ArrayList<>();
-        hashtagsOfUpdatedProduct.forEach(hashtag ->
-                hashtagsAsStringAfterUpdating.add(hashtag.getHashtag()));
-        assertEquals(expectedHashtagsAsString, hashtagsAsStringAfterUpdating);
     }
 
     @Test
@@ -160,9 +132,7 @@ public class ProductServiceIT extends IntegrationTestBase {
                 .price(20)
                 .hashtagsAsString(hashtags)
                 .build();
-        List<String> expectedHashtagsAsString = new ArrayList<>();
-        productBeforeUpdating.get().getHashtags().forEach(hashtag ->
-                expectedHashtagsAsString.add(hashtag.getHashtag()));
+
         String expectedExceptionMessage = "Товар находится у кого-то в корзине а вы не указали что хотите изменить его в любом случае; ";
 
         Exception exception = assertThrows(ProductChangingException.class, ()
@@ -174,11 +144,6 @@ public class ProductServiceIT extends IntegrationTestBase {
         assertEquals(productBeforeUpdating.get().getTitle(), productAfterUpdating.get().getTitle());
         assertEquals(productBeforeUpdating.get().getPrice(), productAfterUpdating.get().getPrice());
         assertEquals(productBeforeUpdating.get().getDescription(), productBeforeUpdating.get().getDescription());
-        List<Hashtag> hashtagsOfUpdatedProduct = hashtagRepository.findAllByProductId(productId);
-        List<String> hashtagsAsStringAfterUpdating = new ArrayList<>();
-        hashtagsOfUpdatedProduct.forEach(hashtag ->
-                hashtagsAsStringAfterUpdating.add(hashtag.getHashtag()));
-        assertEquals(expectedHashtagsAsString, hashtagsAsStringAfterUpdating);
     }
 
     @Test
@@ -249,17 +214,14 @@ public class ProductServiceIT extends IntegrationTestBase {
                 .build();
         Optional<Product> productBeforeDeleting = productRepository.findById(productId);
         assertTrue(productBeforeDeleting.isPresent());
-        List<BasketElement> basketElsThatContainsProduct = basketElementRepository.findAllByProductId(productId);
+        List<BasketElement> basketElsThatContainsProduct = basketElementRepository.findAllByProductIdNotOrdered(productId);
         assertTrue(basketElsThatContainsProduct.isEmpty());
-        List<Hashtag> productHashtags = hashtagRepository.findAllByProductId(productId);
-        assertEquals(2, productHashtags.size());
 
         productService.deleteProduct(deletingDto);
 
         Optional<Product> productAfterDeleting = productRepository.findById(productId);
-        assertTrue(productAfterDeleting.isEmpty());
-        List<Hashtag> productHashtagsAfterDeleting = hashtagRepository.findAllByProductId(productId);
-        assertTrue(productHashtagsAfterDeleting.isEmpty());
+        assertTrue(productAfterDeleting.isPresent());
+        assertEquals(0, (int) productAfterDeleting.get().getAmount());
     }
 
     @Test
@@ -273,18 +235,15 @@ public class ProductServiceIT extends IntegrationTestBase {
         List<BasketElement> basketElsThatContainsProductBeforeDeleting = basketElementRepository
                 .findAllByProductId(productId);
         assertFalse(basketElsThatContainsProductBeforeDeleting.isEmpty());
-        List<Hashtag> productHashtags = hashtagRepository.findAllByProductId(productId);
-        assertEquals(3, productHashtags.size());
 
         productService.deleteProduct(deletingDto);
 
         Optional<Product> productAfterDeleting = productRepository.findById(productId);
-        assertTrue(productAfterDeleting.isEmpty());
+        assertTrue(productAfterDeleting.isPresent());
+        assertEquals(0, (int) productAfterDeleting.get().getAmount());
         List<BasketElement> basketElsThatContainsProductAfterDeleting = basketElementRepository
-                .findAllByProductId(productId);
+                .findAllByProductIdNotOrdered(productId);
         assertTrue(basketElsThatContainsProductAfterDeleting.isEmpty());
-        List<Hashtag> productHashtagsAfterDeleting = hashtagRepository.findAllByProductId(productId);
-        assertTrue(productHashtagsAfterDeleting.isEmpty());
     }
 
     @Test

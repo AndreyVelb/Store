@@ -32,34 +32,4 @@ public class ProductRepositoryIT extends IntegrationTestBase {
         Assertions.assertEquals(1, foundProducts5.getTotalElements());
 
     }
-
-    @Test
-    void findAllThroughSearchByHashtagsTest() {
-        Pageable pageable = PageRequest.of(0, 2);
-
-        Page<ProductForSearchDto> foundProducts1 = productRepository.findAllThroughSearchByHashtags("купить березовый надежный стол", pageable);
-        Page<ProductForSearchDto> foundProducts2 = productRepository.findAllThroughSearchByHashtags("приобрести хороший стул", pageable);
-        Page<ProductForSearchDto> foundProducts3 = productRepository.findAllThroughSearchByHashtags("купить журнальный столик", pageable);
-
-        Assertions.assertEquals(7, foundProducts1.getTotalElements());
-        Assertions.assertEquals(1, foundProducts2.getTotalElements());
-        Assertions.assertEquals(2, foundProducts3.getTotalElements());
-
-    }
-
-    @Test
-    void findAllThroughAdvancedSearchTest() {
-        Pageable pageable = PageRequest.of(0, 2);
-
-        Page<ProductForSearchDto> foundProducts1 = productRepository.findAllThroughAdvancedSearch("купить OR березовый OR надежный OR компьютерный OR стол", "#красивый", pageable);
-        Page<ProductForSearchDto> foundProducts2 = productRepository.findAllThroughAdvancedSearch("приобрести OR хороший OR стул OR для OR пианино", "#новый", pageable);
-        Page<ProductForSearchDto> foundProducts3 = productRepository.findAllThroughAdvancedSearch("купить OR журнальный OR столик OR шпон", "#журнальный", pageable);
-        Page<ProductForSearchDto> foundProducts4 = productRepository.findAllThroughAdvancedSearch("купить OR приличный OR стеллаж OR по OR приемлемой OR цене ", "#приличный", pageable);
-
-        Assertions.assertEquals(5, foundProducts1.getTotalElements());
-        Assertions.assertEquals(4, foundProducts2.getTotalElements());
-        Assertions.assertEquals(3, foundProducts3.getTotalElements());
-        Assertions.assertEquals(2, foundProducts4.getTotalElements());
-    }
-
 }

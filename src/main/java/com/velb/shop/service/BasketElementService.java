@@ -39,7 +39,7 @@ public class BasketElementService {
     public BasketDto getAllBasketElementsFromBasket(Long consumerId) {
         userRepository.findById(consumerId).orElseThrow(()
                 -> new UserNotFoundException("Вы указали некорректные данные. Такого пользователя не существует"));
-        List<BasketElement> consumersBasket = basketElementRepository.findAllByUserId(consumerId);
+        List<BasketElement> consumersBasket = basketElementRepository.findAllByConsumerId(consumerId);
 
         if (consumersBasket.isEmpty()) throw new BasketIsEmptyException("Ваша корзина пуста; ");
 
@@ -104,7 +104,7 @@ public class BasketElementService {
 
     @Transactional
     public Long addProductToBasket(Long consumerId, BasketElementDto basketElementDto) {
-        Optional<BasketElement> optionalBasketElement = basketElementRepository.findByConsumerIdAndProductIdFetchProduct(
+        Optional<BasketElement> optionalBasketElement = basketElementRepository.findByConsumerIdAndProductIdFetchProductNotOrdered(
                 consumerId,
                 basketElementDto.getProductId());
 
@@ -150,7 +150,7 @@ public class BasketElementService {
                 new ProductNotFoundException("Выбранный товар не существует; "));
 
         if (product.getAmount() >= updatingInfo.getAmount()) {
-            Optional<BasketElement> basketElementForUpdate = basketElementRepository.findByConsumerIdAndProductIdFetchProduct(
+            Optional<BasketElement> basketElementForUpdate = basketElementRepository.findByConsumerIdAndProductIdFetchProductNotOrdered(
                     consumerId,
                     updatingInfo.getProductId());
             if (basketElementForUpdate.isPresent()) {
@@ -161,7 +161,6 @@ public class BasketElementService {
                                     .consumer(consumer)
                                     .product(product)
                                     .amount(updatingInfo.getAmount())
-                                    .productBookingTime(null)
                                     .build())
                     .getId();
         } else {

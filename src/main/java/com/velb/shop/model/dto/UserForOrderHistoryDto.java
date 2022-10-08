@@ -5,18 +5,20 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.List;
-
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class PreparedOrderForShowUserDto {
+public class UserForOrderHistoryDto {
 
-    private List<BasketElementForPrepareOrderDto> content;
+    private Long id;
 
-    private Integer totalCoast;
+    private String lastName;
 
-    private String messageForUser;
+    private String firstName;
+
+    private String middleName;
+
+    private String email;
 
 }

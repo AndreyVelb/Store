@@ -70,7 +70,6 @@ public class ProductControllerIT extends IntegrationTestBase {
         assertEquals(productCreatingDto.getAmount(), createdProduct.get().getAmount());
     }
 
-    //Установите свою посту и пароль для приложений в application.yml
     @Test
     void updateProductWithPositiveResolution() throws Exception {
         long productId = 3L;
@@ -94,7 +93,7 @@ public class ProductControllerIT extends IntegrationTestBase {
         assertEquals(productUpdatingDto.getTitle(), updatedProduct.get().getTitle());
         assertEquals(productUpdatingDto.getDescription(), updatedProduct.get().getDescription());
         assertEquals(productUpdatingDto.getPrice(), updatedProduct.get().getPrice());
-        assertEquals(productUpdatingDto.getPrice(), updatedProduct.get().getPrice());
+        assertTrue(updatedProduct.get().getHashtags().contains(productUpdatingDto.getHashtagsAsString().get(0)));
     }
 
     @Test
@@ -165,6 +164,7 @@ public class ProductControllerIT extends IntegrationTestBase {
         assertTrue(deletedProduct.isEmpty());
     }
 
+    //Установите свою почту и пароль для приложений в application.yml
     @Test
     void deleteProductWithNegativeResolution() throws Exception {
         long productId = 4L;
