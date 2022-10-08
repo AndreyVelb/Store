@@ -5,5 +5,6 @@ CREATE TABLE IF NOT EXISTS products
     description VARCHAR(150) NOT NULL,
     amount      INT          NOT NULL,
     price       INT          NOT NULL,
+    hashtags    TEXT,
     fulltext    tsvector
 );

@@ -69,7 +69,7 @@ public class BasketControllerIT extends IntegrationTestBase {
     @WithUserDetails("ivanov@yandex.com")
     void getBasket() throws Exception {
         long consumerId = 3L;
-        List<BasketElement> consumersBasket = basketElementRepository.findAllByUserId(consumerId);
+        List<BasketElement> consumersBasket = basketElementRepository.findAllByConsumerId(consumerId);
         String expectedResponse = objectMapper.writeValueAsString(
                 new BasketDto(
                         basketElementResponseDtoListMapper

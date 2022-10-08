@@ -3,17 +3,24 @@ package com.velb.shop.integration.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.velb.shop.handler.ExceptionResponse;
 import com.velb.shop.integration.IntegrationTestBase;
+import com.velb.shop.model.dto.BasketElementForOrderHistoryDto;
 import com.velb.shop.model.dto.OrderCreatingDto;
-import com.velb.shop.model.dto.OrderResponseDto;
+import com.velb.shop.model.dto.OrderHistoryDto;
+import com.velb.shop.model.dto.OrderInfoForHistoryDto;
 import com.velb.shop.model.dto.OrderUpdatingDto;
-import com.velb.shop.model.dto.PageResponse;
+import com.velb.shop.model.dto.ProductForOrderHistoryDto;
+import com.velb.shop.model.dto.UserForOrderHistoryDto;
+import com.velb.shop.model.entity.BasketElement;
 import com.velb.shop.model.entity.Order;
-import com.velb.shop.model.mapper.OrderResponseDtoMapper;
+import com.velb.shop.model.entity.auxiliary.OrderStatus;
+import com.velb.shop.repository.BasketElementRepository;
 import com.velb.shop.repository.OrderRepository;
+import com.velb.shop.service.OrderService;
 import lombok.RequiredArgsConstructor;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
@@ -21,6 +28,7 @@ import org.springframework.security.test.context.support.WithUserDetails;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -33,6 +41,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -43,18 +52,25 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @RequiredArgsConstructor
 public class OrderControllerIT extends IntegrationTestBase {
     private final MockMvc mockMvc;
+    private final OrderService orderService;
     private final OrderRepository orderRepository;
-    private final OrderResponseDtoMapper orderResponseDtoMapper;
+    private final BasketElementRepository basketElementRepository;
     private final ObjectMapper objectMapper;
 
     @Test
-    void getAllOrders() throws Exception {
+    void getAllOrderHistory() throws Exception {
         Pageable pageable = PageRequest.of(0, 2);
-        Page<Order> orderPage = orderRepository.findAllFetchConsumers(pageable);
-        Page<OrderResponseDto> orderResponseDtoPage = orderPage.map(orderResponseDtoMapper::map);
-        PageResponse<OrderResponseDto> expectedPageResponse = PageResponse.of(orderResponseDtoPage);
+        Page<Order> ordersPage = orderRepository.findAllFetchConsumerAndLastUser(pageable);
+        List<OrderHistoryDto> expectedResultAsList = new ArrayList<>();
 
-        MvcResult result = mockMvc.perform(get("/api/v1/admins/1/orders")
+        for (Order order : ordersPage) {
+            List<BasketElement> basketElementList = basketElementRepository.findAllByOrderIdFetchProduct(order.getId());
+            expectedResultAsList.add(mapToOrderHistoryDto(order, basketElementList));
+        }
+
+        Page<OrderHistoryDto> expectedResultAsPage = new PageImpl<>(expectedResultAsList, pageable, expectedResultAsList.size());
+
+        MvcResult result = mockMvc.perform(get("/api/v1/admins/1/order-history")
                         .param("page", "0")
                         .param("size", "2")
                         .with(csrf()))
@@ -64,7 +80,36 @@ public class OrderControllerIT extends IntegrationTestBase {
                 )
                 .andReturn();
 
-        assertEquals(objectMapper.writeValueAsString(expectedPageResponse), result.getResponse().getContentAsString());
+        assertEquals(objectMapper.writeValueAsString(expectedResultAsPage), result.getResponse().getContentAsString());
+    }
+
+    @Test
+    void getAllOrderHistoryByConsumerId() throws Exception {
+        Long consumerId = 2L;
+        Pageable pageable = PageRequest.of(0, 2);
+        Page<Order> ordersPage = orderRepository.findAllByConsumerIdFetchConsumerAndLastUser(consumerId, pageable);
+        List<OrderHistoryDto> expectedResultAsList = new ArrayList<>();
+
+        for (Order order : ordersPage) {
+            List<BasketElement> basketElementList = basketElementRepository.findAllByOrderIdFetchProduct(order.getId());
+            expectedResultAsList.add(mapToOrderHistoryDto(order, basketElementList));
+        }
+
+        Page<OrderHistoryDto> expectedResultAsPage = new PageImpl<>(expectedResultAsList, pageable, expectedResultAsList.size());
+
+        MvcResult result = mockMvc.perform(get("/api/v1/admins/1/order-history")
+                        .param("consumerId", "2")
+                        .param("page", "0")
+                        .param("size", "2")
+                        .with(csrf()))
+                .andExpectAll(
+                        status().isOk(),
+                        content().contentType("application/json;charset=UTF-8")
+                )
+                .andReturn();
+
+        assertEquals(objectMapper.writeValueAsString(expectedResultAsPage), result.getResponse().getContentAsString());
+        System.out.println(result.getResponse().getContentAsString());
     }
 
     @Test
@@ -199,7 +244,7 @@ public class OrderControllerIT extends IntegrationTestBase {
 
         Optional<Order> updatedOrder = orderRepository.findById(orderId);
         assertTrue(updatedOrder.isPresent());
-        assertEquals(orderUpdatingDto.getConsumerStatus(), updatedOrder.get().getConsumerOrderStatus().name());
+        assertEquals(orderUpdatingDto.getConsumerStatus(), updatedOrder.get().getOrderStatus().name());
     }
 
     @Test
@@ -215,7 +260,102 @@ public class OrderControllerIT extends IntegrationTestBase {
                 .andReturn();
 
         Optional<Order> updatedOrder = orderRepository.findById(orderId);
-        assertTrue(updatedOrder.isEmpty());
+        assertTrue(updatedOrder.isPresent());
+        assertEquals(OrderStatus.DELETED, updatedOrder.get().getOrderStatus());
     }
 
+    @Test
+    @WithUserDetails("petrov@gmail.com")
+    void prepareOrder() throws Exception {
+        long consumerId = 2L;
+
+        mockMvc.perform(patch("/api/v1/consumers/" + consumerId + "/order-layout")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .with(csrf()))
+                .andExpectAll(
+                        status().isOk(),
+                        content().contentType("application/json;charset=UTF-8"));
+    }
+
+    //Установите свою почту и пароль для приложений в application.yml
+    @Test
+    @WithUserDetails("petrov@gmail.com")
+    void makeOrder() throws Exception {
+        long consumerId = 2L;
+
+        List<BasketElement> preparedBasketElement = basketElementRepository.findAllByConsumerIdNotOrdered(consumerId);
+        for (BasketElement basketElement : preparedBasketElement) {
+            basketElement.setPriceInOrder(basketElement.getProduct().getPrice());
+        }
+
+        MvcResult result = mockMvc.perform(post("/api/v1/consumers/" + consumerId + "/order-layout")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .with(csrf()))
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        Pattern pattern = Pattern.compile("\\d+$");
+        Matcher matcher = pattern.matcher(Objects.requireNonNull(result.getResponse().getHeader("Location")));
+        String newOrderIdAsString = "";
+        if (matcher.find()) {
+            newOrderIdAsString = matcher.group();
+        }
+        Optional<Order> createdOrder = orderRepository.findById(Long.valueOf(newOrderIdAsString));
+        assertTrue(createdOrder.isPresent());
+    }
+
+    @Test
+    @WithUserDetails("petrov@gmail.com")
+    void cancelCreationAnOrder() throws Exception {
+        long consumerId = 2L;
+        orderService.prepareOrderByConsumer(consumerId);
+
+        mockMvc.perform(put("/api/v1/consumers/" + consumerId + "/order-layout")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .with(csrf()))
+                .andExpect(status().isOk());
+    }
+
+    OrderHistoryDto mapToOrderHistoryDto(Order order, List<BasketElement> basketElementList) {
+        List<BasketElementForOrderHistoryDto> basketElementForOrderHistoryDtoList = new ArrayList<>();
+        for (BasketElement basketElement : basketElementList) {
+            basketElementForOrderHistoryDtoList.add(
+                    BasketElementForOrderHistoryDto.builder()
+                            .amount(basketElement.getAmount())
+                            .priceInOrder(basketElement.getPriceInOrder())
+                            .product(
+                                    ProductForOrderHistoryDto.builder()
+                                            .id(basketElement.getProduct().getId())
+                                            .title(basketElement.getProduct().getTitle())
+                                            .build())
+                            .build());
+        }
+
+        return OrderHistoryDto.builder()
+                .orderInfo(OrderInfoForHistoryDto.builder()
+                        .id(order.getId())
+                        .consumer(
+                                UserForOrderHistoryDto.builder()
+                                        .id(order.getConsumer().getId())
+                                        .lastName(order.getConsumer().getLastName())
+                                        .firstName(order.getConsumer().getFirstName())
+                                        .middleName(order.getConsumer().getMiddleName())
+                                        .email(order.getConsumer().getEmail())
+                                        .build())
+                        .date(order.getDate())
+                        .orderStatus(order.getOrderStatus())
+                        .totalCost(order.getTotalCost())
+                        .lastUser(
+                                UserForOrderHistoryDto.builder()
+                                        .id(order.getLastUser().getId())
+                                        .lastName(order.getLastUser().getLastName())
+                                        .firstName(order.getLastUser().getFirstName())
+                                        .middleName(order.getLastUser().getMiddleName())
+                                        .email(order.getLastUser().getEmail())
+                                        .build())
+                        .build())
+                .content(basketElementForOrderHistoryDtoList)
+                .build();
+    }
 }
+

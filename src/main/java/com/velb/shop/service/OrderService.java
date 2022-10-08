@@ -260,7 +260,6 @@ public class OrderService {
                 -> new OrderNotFoundException("Заказа с id " + orderId + " не существует; "));
         orderForDelete.setOrderStatus(OrderStatus.DELETED);
         orderForDelete.setLastUser(admin);
-        //TODO проверить не нужно ли save
     }
 
     @Transactional(readOnly = true)
