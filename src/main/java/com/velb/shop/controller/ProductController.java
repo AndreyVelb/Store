@@ -57,31 +57,20 @@ public class ProductController {
     @PreAuthorize("authentication.principal.id == #adminId")
     public void update(@RequestBody @Validated ProductUpdatingDto productUpdatingDto,
                        @PathVariable Long adminId) {
-        Set<User> consumersWhoHaveUpdatingProduct = productService.getConsumersWhoHaveThisProductInBasket(productUpdatingDto.getProductId());
-        productService.updateProduct(productUpdatingDto);
-        emailService.sendEmailAboutProductUpdating(consumersWhoHaveUpdatingProduct, productUpdatingDto.getProductId());
-    }
-
-    @PatchMapping(value = "/admins/{adminId}/products/{productId}", consumes = MediaType.APPLICATION_JSON_VALUE)
-    @ResponseStatus(HttpStatus.OK)
-    @PreAuthorize("authentication.principal.id == #adminId")
-    public void updateProductAmount(@RequestBody ProductAmountUpdatingDto updatingDto,
-                                    @PathVariable Long adminId) {
-        productService.updateProductAmount(updatingDto);
+        productService.updateProductAndSendEmails(productUpdatingDto);
     }
 
     @DeleteMapping(value = "/admins/{adminId}/products/{productId}", consumes = MediaType.APPLICATION_JSON_VALUE)
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @PreAuthorize("authentication.principal.id == #adminId")
-    public void delete(@RequestBody ProductDeletingDto deletingDto,
-                       @PathVariable Long adminId) {
-        Set<User> consumersWhoHaveDeletingProduct = productService.getConsumersWhoHaveThisProductInBasket(deletingDto.getProductId());
+    public void delete(@RequestBody ProductDeletingDto deletingDto, @PathVariable Long adminId) {
+        Set<User> consumersWhoHaveDeletingProduct = productService.getConsumersByProductId(deletingDto.getProductId());
         ProductForMessageDto beingDeletedProductDto = productService.getProductDto(deletingDto.getProductId());
         productService.deleteProduct(deletingDto);
         emailService.sendEmailAboutProductDeleting(consumersWhoHaveDeletingProduct, beingDeletedProductDto);
     }
 
-    @GetMapping(value = "/products", produces = "application/json;charset=UTF-8")
+    @GetMapping(value = "/products")
     @ResponseStatus(HttpStatus.OK)
     public PageResponse<? extends ProductForSearchDto> searchProducts(@RequestParam(name = "searchQuery") String searchQuery,
                                                                       @RequestParam(name = "hashtags") String hashtags,
@@ -90,7 +79,7 @@ public class ProductController {
         return PageResponse.of(products);
     }
 
-    @GetMapping(value = "/products/{productId}", produces = "application/json;charset=UTF-8")
+    @GetMapping(value = "/products/{productId}")
     @ResponseStatus(HttpStatus.OK)
     public ProductForSearchDto getProduct(@PathVariable Long productId) {
         return searchService.findProductById(productId);

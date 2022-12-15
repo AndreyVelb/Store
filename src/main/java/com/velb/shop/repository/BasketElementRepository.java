@@ -16,19 +16,14 @@ public interface BasketElementRepository extends JpaRepository<BasketElement, Lo
 
     @Query("select b from BasketElement b " +
             "where b.id = :basketElementId " +
-            "and b.consumer.id = :consumerId")
-    Optional<BasketElement> findByIdAndByConsumerId(Long basketElementId, Long consumerId);
+            "and b.consumer.id = :consumerId " +
+            "and b.order is null")
+    Optional<BasketElement> findByIdAndByConsumerIdNotOrdered(Long basketElementId, Long consumerId);
 
     @Query("select b from BasketElement b " +
             "join fetch b.product " +
             "where b.order.id = :orderId")
     List<BasketElement> findAllByOrderIdFetchProduct(Long orderId);
-
-    @Query("select b from BasketElement b " +
-            "join fetch b.product " +
-            "where b.consumer.id  = :consumerId " +
-            "and b.order is null")
-    List<BasketElement> findAllByConsumerIdFetchProductNotOrdered(Long consumerId);
 
     @Query("select b from BasketElement b " +
             "where b.consumer.id  = :consumerId " +
@@ -55,10 +50,6 @@ public interface BasketElementRepository extends JpaRepository<BasketElement, Lo
             "join fetch b.consumer " +
             "where b.product.id = :productId")
     List<BasketElement> findAllFetchConsumerByProductId(Long productId);
-
-    @Query("select b from BasketElement b " +
-            "where b.product.id = :productId")
-    List<BasketElement> findAllByProductId(Long productId);
 
     @Query("select b from BasketElement b " +
             "where b.product.id = :productId " +

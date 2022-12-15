@@ -26,9 +26,9 @@ public class UserService implements UserDetailsService {
 
     @Transactional
     public Long createUser(UserRegistrationDto userRegistrationDto) {
-        UserDto userDto = userDtoMapper.map(userRegistrationDto);
         Optional<User> userWithSameEmail = userRepository.findByEmail(userRegistrationDto.getEmail());
         if (userWithSameEmail.isEmpty()) {
+            UserDto userDto = userDtoMapper.map(userRegistrationDto);
             User user = User.builder()
                     .lastName(userDto.getLastName())
                     .firstName(userDto.getFirstName())

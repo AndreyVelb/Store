@@ -31,6 +31,7 @@ public class SecurityConfiguration extends WebSecurityConfigurerAdapter {
                                 "/v3/api-docs/**",
                                 "/swagger-ui.html",
                                 "/swagger-ui/**").permitAll()
+                        .antMatchers("/api/v1/orders/**").hasAuthority(Role.ADMIN.getAuthority())
                         .antMatchers("/api/v1/admins/**").hasAuthority(Role.ADMIN.getAuthority())
                         .antMatchers("/api/v1/consumers/**").hasAuthority(Role.CONSUMER.getAuthority())
                         .anyRequest().denyAll())

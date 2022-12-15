@@ -10,9 +10,7 @@ import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 @Data
 @NoArgsConstructor
@@ -33,6 +31,9 @@ public class ProductUpdatingDto {
     @Min(value = 1, message = " ЦЕНА ТОВАРА не может быть меньше 1; ")
     @Max(value = Integer.MAX_VALUE, message = " ЦЕНА ТОВАРА не может быть такой большой; ")
     private Integer price;
+
+    @Max(value = Integer.MAX_VALUE, message = " РАЗНИЦА В КОЛЛИЧЕСТВЕ ТОВАРА не может быть такой большой; ")
+    private Integer updatingProductAmount;
 
     @NotNull(message = " Поле РАЗРЕШЕНИЕ НА ИЗМЕНЕНИЕ не может быть пустым; ")
     private boolean canBeUpdated;

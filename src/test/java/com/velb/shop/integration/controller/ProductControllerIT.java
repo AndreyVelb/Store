@@ -2,7 +2,6 @@ package com.velb.shop.integration.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.velb.shop.integration.IntegrationTestBase;
-import com.velb.shop.model.dto.ProductAmountUpdatingDto;
 import com.velb.shop.model.dto.ProductCreatingDto;
 import com.velb.shop.model.dto.ProductDeletingDto;
 import com.velb.shop.model.dto.ProductUpdatingDto;
@@ -26,7 +25,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -40,7 +38,7 @@ public class ProductControllerIT extends IntegrationTestBase {
     private final ObjectMapper objectMapper;
 
     @Test
-    void createProduct() throws Exception {
+    void create() throws Exception {
         ProductCreatingDto productCreatingDto = ProductCreatingDto.builder()
                 .title("Тестовый товар")
                 .description("Описание тестового товара")
@@ -51,7 +49,7 @@ public class ProductControllerIT extends IntegrationTestBase {
 
         MvcResult result = mockMvc.perform(post("/api/v1/admins/1/products")
                         .content(objectMapper.writeValueAsString(productCreatingDto))
-                        .contentType(MediaType.APPLICATION_JSON)
+                        .contentType(MediaType.APPLICATION_JSON_VALUE)
                         .with(csrf()))
                 .andExpect(status().isCreated())
                 .andReturn();
@@ -84,7 +82,7 @@ public class ProductControllerIT extends IntegrationTestBase {
 
         mockMvc.perform(put("/api/v1/admins/1/products/3")
                         .content(objectMapper.writeValueAsString(productUpdatingDto))
-                        .contentType(MediaType.APPLICATION_JSON)
+                        .contentType(MediaType.APPLICATION_JSON_VALUE)
                         .with(csrf()))
                 .andExpect(status().isOk());
 
@@ -106,11 +104,12 @@ public class ProductControllerIT extends IntegrationTestBase {
                 .price(30)
                 .hashtagsAsString(List.of())
                 .canBeUpdated(false)
+                .updatingProductAmount(-1)
                 .build();
 
         mockMvc.perform(put("/api/v1/admins/1/products/4")
                         .content(objectMapper.writeValueAsString(productUpdatingDto))
-                        .contentType(MediaType.APPLICATION_JSON)
+                        .contentType(MediaType.APPLICATION_JSON_VALUE)
                         .with(csrf()))
                 .andExpect(status().isOk());
 
@@ -119,28 +118,6 @@ public class ProductControllerIT extends IntegrationTestBase {
         assertEquals(productUpdatingDto.getTitle(), updatedProduct.get().getTitle());
         assertEquals(productUpdatingDto.getPrice(), updatedProduct.get().getPrice());
         assertEquals(productUpdatingDto.getPrice(), updatedProduct.get().getPrice());
-    }
-
-    @Test
-    void updateProductAmount() throws Exception {
-        long productId = 4L;
-        ProductAmountUpdatingDto updatingDto = ProductAmountUpdatingDto.builder()
-                .productId(productId)
-                .updateAmount(-5)
-                .build();
-        Optional<Product> productBeforeUpdating = productRepository.findById(productId);
-        assertTrue(productBeforeUpdating.isPresent());
-        int expectedAmountAfterUpdating = productBeforeUpdating.get().getAmount() + updatingDto.getUpdateAmount();
-
-        mockMvc.perform(patch("/api/v1/admins/1/products/4")
-                        .content(objectMapper.writeValueAsString(updatingDto))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .with(csrf()))
-                .andExpect(status().isOk());
-
-        Optional<Product> updatedProduct = productRepository.findById(productId);
-        assertTrue(updatedProduct.isPresent());
-        assertEquals(expectedAmountAfterUpdating, updatedProduct.get().getAmount());
     }
 
     //Установите свою посту и пароль для приложений в application.yml
@@ -156,7 +133,7 @@ public class ProductControllerIT extends IntegrationTestBase {
 
         mockMvc.perform(delete("/api/v1/admins/1/products/3")
                         .content(objectMapper.writeValueAsString(deletingDto))
-                        .contentType(MediaType.APPLICATION_JSON)
+                        .contentType(MediaType.APPLICATION_JSON_VALUE)
                         .with(csrf()))
                 .andExpect(status().isNoContent());
 
@@ -177,7 +154,7 @@ public class ProductControllerIT extends IntegrationTestBase {
 
         mockMvc.perform(delete("/api/v1/admins/1/products/4")
                         .content(objectMapper.writeValueAsString(deletingDto))
-                        .contentType(MediaType.APPLICATION_JSON)
+                        .contentType(MediaType.APPLICATION_JSON_VALUE)
                         .with(csrf()))
                 .andExpect(status().isNoContent());
 

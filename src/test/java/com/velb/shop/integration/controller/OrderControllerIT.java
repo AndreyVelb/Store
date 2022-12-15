@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.velb.shop.handler.ExceptionResponse;
 import com.velb.shop.integration.IntegrationTestBase;
 import com.velb.shop.model.dto.BasketElementForOrderHistoryDto;
-import com.velb.shop.model.dto.OrderCreatingDto;
+import com.velb.shop.model.dto.OrderCreatingByAdminDto;
 import com.velb.shop.model.dto.OrderHistoryDto;
 import com.velb.shop.model.dto.OrderInfoForHistoryDto;
 import com.velb.shop.model.dto.OrderUpdatingDto;
@@ -58,33 +58,7 @@ public class OrderControllerIT extends IntegrationTestBase {
     private final ObjectMapper objectMapper;
 
     @Test
-    void getAllOrderHistory() throws Exception {
-        Pageable pageable = PageRequest.of(0, 2);
-        Page<Order> ordersPage = orderRepository.findAllFetchConsumerAndLastUser(pageable);
-        List<OrderHistoryDto> expectedResultAsList = new ArrayList<>();
-
-        for (Order order : ordersPage) {
-            List<BasketElement> basketElementList = basketElementRepository.findAllByOrderIdFetchProduct(order.getId());
-            expectedResultAsList.add(mapToOrderHistoryDto(order, basketElementList));
-        }
-
-        Page<OrderHistoryDto> expectedResultAsPage = new PageImpl<>(expectedResultAsList, pageable, expectedResultAsList.size());
-
-        MvcResult result = mockMvc.perform(get("/api/v1/admins/1/order-history")
-                        .param("page", "0")
-                        .param("size", "2")
-                        .with(csrf()))
-                .andExpectAll(
-                        status().isOk(),
-                        content().contentType("application/json;charset=UTF-8")
-                )
-                .andReturn();
-
-        assertEquals(objectMapper.writeValueAsString(expectedResultAsPage), result.getResponse().getContentAsString());
-    }
-
-    @Test
-    void getAllOrderHistoryByConsumerId() throws Exception {
+    void getOrdersByConsumer() throws Exception {
         Long consumerId = 2L;
         Pageable pageable = PageRequest.of(0, 2);
         Page<Order> ordersPage = orderRepository.findAllByConsumerIdFetchConsumerAndLastUser(consumerId, pageable);
@@ -97,7 +71,7 @@ public class OrderControllerIT extends IntegrationTestBase {
 
         Page<OrderHistoryDto> expectedResultAsPage = new PageImpl<>(expectedResultAsList, pageable, expectedResultAsList.size());
 
-        MvcResult result = mockMvc.perform(get("/api/v1/admins/1/order-history")
+        MvcResult result = mockMvc.perform(get("/api/v1/orders")
                         .param("consumerId", "2")
                         .param("page", "0")
                         .param("size", "2")
@@ -114,6 +88,7 @@ public class OrderControllerIT extends IntegrationTestBase {
 
     @Test
     void createOrder() throws Exception {
+        long adminId = 1L;
         long productId2 = 2L;
         long productId3 = 3L;
         long productId8 = 8L;
@@ -121,13 +96,14 @@ public class OrderControllerIT extends IntegrationTestBase {
                 productId2, 10,
                 productId3, 16,
                 productId8, 10);
-        OrderCreatingDto orderCreatingDto = OrderCreatingDto.builder()
+        OrderCreatingByAdminDto orderCreatingDto = OrderCreatingByAdminDto.builder()
                 .consumerId(3L)
                 .productsAndAmount(productsAndAmount)
+                .adminId(adminId)
                 .build();
         String orderCreatingDtoAsJson = objectMapper.writeValueAsString(orderCreatingDto);
 
-        MvcResult result = mockMvc.perform(post("/api/v1/admins/1/orders")
+        MvcResult result = mockMvc.perform(post("/api/v1/orders")
                         .content(orderCreatingDtoAsJson)
                         .contentType(MediaType.APPLICATION_JSON)
                         .with(csrf()))
@@ -146,6 +122,7 @@ public class OrderControllerIT extends IntegrationTestBase {
 
     @Test
     void createNewOrderByAdminThrowProductNotFoundEx() throws Exception {
+        long adminId = 1L;
         long productId1 = 1L;
         long productId2 = 2L;
         long nonExistedProductId = 10000000L;
@@ -153,15 +130,16 @@ public class OrderControllerIT extends IntegrationTestBase {
                 productId1, 10,
                 productId2, 16,
                 nonExistedProductId, 10);
-        OrderCreatingDto orderCreatingDto = OrderCreatingDto.builder()
+        OrderCreatingByAdminDto orderCreatingDto = OrderCreatingByAdminDto.builder()
                 .consumerId(3L)
                 .productsAndAmount(productsAndAmount)
+                .adminId(adminId)
                 .build();
         String orderCreatingDtoAsJson = objectMapper.writeValueAsString(orderCreatingDto);
         String expectedExceptionMessageAsJson = objectMapper.writeValueAsString(
                 new ExceptionResponse("Товара с id " + nonExistedProductId + " не существует; "));
 
-        MvcResult result = mockMvc.perform(post("/api/v1/admins/1/orders")
+        MvcResult result = mockMvc.perform(post("/api/v1/orders")
                         .content(orderCreatingDtoAsJson)
                         .contentType(MediaType.APPLICATION_JSON)
                         .with(csrf()))
@@ -173,17 +151,19 @@ public class OrderControllerIT extends IntegrationTestBase {
 
     @Test
     void createNewOrderByAdminThrowUserNotFoundExWithNonExistedConsumer() throws Exception {
+        long adminId = 1L;
         long nonExistedConsumerId = 100000L;
         Map<Long, Integer> productsAndAmount = Map.of(2L, 10, 3L, 16, 8L, 10);
-        OrderCreatingDto orderCreatingDto = OrderCreatingDto.builder()
+        OrderCreatingByAdminDto orderCreatingDto = OrderCreatingByAdminDto.builder()
                 .consumerId(nonExistedConsumerId)
                 .productsAndAmount(productsAndAmount)
+                .adminId(adminId)
                 .build();
         String orderCreatingDtoAsJson = objectMapper.writeValueAsString(orderCreatingDto);
         String expectedExceptionMessageAsJson = objectMapper.writeValueAsString(
                 new ExceptionResponse("Вы выбрали некорректного покупателя; "));
 
-        MvcResult result = mockMvc.perform(post("/api/v1/admins/1/orders")
+        MvcResult result = mockMvc.perform(post("/api/v1/orders")
                         .content(orderCreatingDtoAsJson)
                         .contentType(MediaType.APPLICATION_JSON)
                         .with(csrf()))
@@ -195,18 +175,20 @@ public class OrderControllerIT extends IntegrationTestBase {
 
     @Test
     void createNewOrderByAdminThrowMethodArgumentNotValidEx() throws Exception {
+        long adminId = 1L;
         long consumerId = -3L;
         Map<Long, Integer> productsAndAmount = Map.of(2L, 10, -3L, 16, 8L, 10);
-        OrderCreatingDto orderCreatingDto = OrderCreatingDto.builder()
+        OrderCreatingByAdminDto orderCreatingDto = OrderCreatingByAdminDto.builder()
                 .consumerId(consumerId)
                 .productsAndAmount(productsAndAmount)
+                .adminId(adminId)
                 .build();
         String orderCreatingDtoAsJson = objectMapper.writeValueAsString(orderCreatingDto);
         List<String> expectedExceptionMessages = List.of(
                 " Вы ввели некорректные данные - либо значение уникального идентификатора товара либо его количество меньше 0; ",
                 " Некорректное значение уникального идентификатора пользователя - оно не может быть меньше 1; ");
 
-        MvcResult result = mockMvc.perform(post("/api/v1/admins/1/orders")
+        MvcResult result = mockMvc.perform(post("/api/v1/orders")
                         .content(orderCreatingDtoAsJson)
                         .contentType(MediaType.APPLICATION_JSON)
                         .with(csrf()))
@@ -220,6 +202,7 @@ public class OrderControllerIT extends IntegrationTestBase {
 
     @Test
     void updateOrder() throws Exception {
+        long adminId = 1L;
         long orderId = 3L;
         long productId1 = 1L;
         long productId2 = 2L;
@@ -229,13 +212,13 @@ public class OrderControllerIT extends IntegrationTestBase {
                 productId2, 4,
                 productId3, 7);
         OrderUpdatingDto orderUpdatingDto = OrderUpdatingDto.builder()
-                .orderId(orderId)
                 .productsAndAmount(productsAndAmount)
                 .consumerStatus("SENT")
+                .adminId(adminId)
                 .build();
         String orderUpdatingDtoAsJson = objectMapper.writeValueAsString(orderUpdatingDto);
 
-        mockMvc.perform(put("/api/v1/admins/1/orders/3")
+        mockMvc.perform(put("/api/v1/orders/3")
                         .content(orderUpdatingDtoAsJson)
                         .contentType(MediaType.APPLICATION_JSON)
                         .with(csrf()))
@@ -252,7 +235,7 @@ public class OrderControllerIT extends IntegrationTestBase {
         long orderId = 3L;
         String orderIdAsJson = objectMapper.writeValueAsString(orderId);
 
-        mockMvc.perform(delete("/api/v1/admins/1/orders/3")
+        mockMvc.perform(delete("/api/v1/orders/3")
                         .content(orderIdAsJson)
                         .contentType(MediaType.APPLICATION_JSON)
                         .with(csrf()))

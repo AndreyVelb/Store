@@ -1,6 +1,7 @@
 package com.velb.shop.controller;
 
-import com.velb.shop.model.dto.OrderCreatingDto;
+import com.velb.shop.model.dto.OrderCreatingByAdminDto;
+import com.velb.shop.model.dto.OrderDeletingDto;
 import com.velb.shop.model.dto.OrderHistoryDto;
 import com.velb.shop.model.dto.OrderUpdatingDto;
 import com.velb.shop.model.dto.PreparedOrderForShowUserDto;
@@ -39,41 +40,38 @@ public class OrderController {
     private final OrderService orderService;
     private final EmailService emailService;
 
-    @GetMapping(value = "/admins/{adminId}/order-history", produces = "application/json;charset=UTF-8")
+    @GetMapping(value = "/orders", produces = "application/json;charset=UTF-8")
     @ResponseStatus(HttpStatus.OK)
-    @PreAuthorize("authentication.principal.id == #adminId")
-    public Page<OrderHistoryDto> getOrderHistory(@Nullable @RequestParam Long consumerId,
-                                                 @PathVariable Long adminId,
-                                                 Pageable pageable) {
+    public Page<OrderHistoryDto> getOrdersByConsumer(@Nullable @RequestParam Long consumerId, Pageable pageable) {
         return orderService.getOrderHistory(consumerId, pageable);
     }
 
-    @PostMapping(value = "/admins/{adminId}/orders", consumes = MediaType.APPLICATION_JSON_VALUE, produces = "application/json;charset=UTF-8")
+    @GetMapping(value = "/orders/{id}")
+    @ResponseStatus(HttpStatus.OK)
+    public OrderHistoryDto getOrder(@PathVariable Long id) {
+        return orderService.getOrderById(id);
+    }
+
+    @PostMapping(value = "/orders", consumes = MediaType.APPLICATION_JSON_VALUE, produces = "application/json;charset=UTF-8")
     @ResponseStatus(HttpStatus.CREATED)
-    @PreAuthorize("authentication.principal.id == #adminId")
-    public ResponseEntity<String> create(@RequestBody @Validated OrderCreatingDto orderCreatingDto,
-                                         @PathVariable Long adminId) {
-        Long newOrderId = orderService.createNewOrderByAdmin(adminId, orderCreatingDto);
-        URI location = URI.create("/api/v1/products/" + newOrderId);
+    public ResponseEntity<String> create(@RequestBody @Validated OrderCreatingByAdminDto orderCreatingDto) {
+        Long newOrderId = orderService.createOrderByAdmin(orderCreatingDto);
+        URI location = URI.create("/api/v1/orders/" + newOrderId);
         return ResponseEntity.created(location).build();
     }
 
-    @PutMapping(value = "/admins/{adminId}/orders/{orderId}", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @PutMapping(value = "orders/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
     @ResponseStatus(HttpStatus.OK)
-    @PreAuthorize("authentication.principal.id == #adminId")
-    public void update(@RequestBody @Validated OrderUpdatingDto orderUpdatingDto,
-                       @PathVariable Long adminId) {
-        orderService.updateOrderByAdmin(adminId, orderUpdatingDto);
+    public void update(@PathVariable Long id, @RequestBody @Validated OrderUpdatingDto orderUpdatingDto) {
+        orderService.updateOrderByAdmin(id, orderUpdatingDto);
     }
 
-    @DeleteMapping(value = "/admins/{adminId}/orders/{orderId}",
+    @DeleteMapping(value = "orders/{id}",
             consumes = MediaType.APPLICATION_JSON_VALUE,
             produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    @PreAuthorize("authentication.principal.id == #adminId")
-    public void delete(@PathVariable Long adminId,
-                       @PathVariable Long orderId) {
-        orderService.deleteOrderByAdmin(adminId, orderId);
+    public void delete(@PathVariable Long id, @RequestBody OrderDeletingDto deletingDto) {
+        orderService.deleteOrderByAdmin(id, deletingDto);
     }
 
     //Бронирует то количество товара которое хочет купить пользователь
@@ -88,10 +86,10 @@ public class OrderController {
     @PostMapping(value = "/consumers/{consumerId}/order-layout", consumes = MediaType.APPLICATION_JSON_VALUE)
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("authentication.principal.id == #consumerId")
-    public ResponseEntity<String> makeOrder(@PathVariable Long consumerId) {
+    public ResponseEntity<String> createOrder(@PathVariable Long consumerId) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
-        Long orderId = orderService.makeOrderByConsumer(consumerId);
+        Long orderId = orderService.createOrderByConsumer(consumerId);
         URI location = URI.create("/api/v1/users/" + consumerId + "/orders/" + orderId);
         emailService.sendEmailAboutOrderCreating(orderId, userDetails.getUsername());
         return ResponseEntity.created(location).build();
@@ -101,7 +99,7 @@ public class OrderController {
     @PutMapping(value = "/consumers/{consumerId}/order-layout", consumes = MediaType.APPLICATION_JSON_VALUE)
     @ResponseStatus(HttpStatus.OK)
     @PreAuthorize("authentication.principal.id == #consumerId")
-    public void cancelCreationAnOrder(@PathVariable Long consumerId) {
-        orderService.cancelOrderCreationByConsumer(consumerId);
+    public void cancelOrder(@PathVariable Long consumerId) {
+        orderService.cancelOrderByConsumer(consumerId);
     }
 }

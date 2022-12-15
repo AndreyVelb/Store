@@ -8,6 +8,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 import java.util.Map;
@@ -18,15 +19,18 @@ import java.util.Map;
 @Builder
 public class OrderUpdatingDto {
 
-    @NotNull(message = " Поле УНИКАЛЬНЫЙ ИДЕНТИФИКАТОР  не может быть пустым; ")
-    @Min(value = 1, message = " Поле УНИКАЛЬНЫЙ ИДЕНТИФИКАТОР не может быть меньше 1; ")
-    private Long orderId;
-
     @ProductsAndAmount
     private Map<Long, Integer> productsAndAmount;
 
     @ValueOfEnum(enumClass = OrderStatus.class,
             message = "Не правильно установлен СТАТУС ЗАКАЗА для покупателя; ")
     private String consumerStatus;
+
+    @NotNull(message = " Некорректно передалось значение уникального идентификатора администратора. Оно не может быть пустым; ")
+    @Min(value = 1L,
+         message = " Некорректно передалось значение уникального идентификатора администратора.Оно не может быть меньше 1; ")
+    @Max(value = Long.MAX_VALUE,
+         message = " Некорректно передалось значение уникального идентификатора администратора. Оно слишком велико; ")
+    private Long adminId;
 
 }

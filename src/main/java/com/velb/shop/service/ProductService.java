@@ -4,7 +4,6 @@ import com.velb.shop.exception.ProductChangingException;
 import com.velb.shop.exception.ProductNotFoundException;
 import com.velb.shop.model.converter.HashtagsFromSetConverter;
 import com.velb.shop.model.converter.HashtagsToSetConverter;
-import com.velb.shop.model.dto.ProductAmountUpdatingDto;
 import com.velb.shop.model.dto.ProductCreatingDto;
 import com.velb.shop.model.dto.ProductDeletingDto;
 import com.velb.shop.model.dto.ProductForMessageDto;
@@ -26,6 +25,7 @@ import java.util.Set;
 @Service
 @RequiredArgsConstructor
 public class ProductService {
+    private final EmailService emailService;
     private final ProductRepository productRepository;
     private final BasketElementRepository basketElementRepository;
     private final HashtagsFromSetConverter hashtagsFromSetConverter;
@@ -33,7 +33,7 @@ public class ProductService {
 
     @Transactional
     public Long createProduct(ProductCreatingDto productCreatingDto) {
-        Product newProduct = productRepository.save(
+        return productRepository.save(
                 Product.builder()
                         .title(productCreatingDto.getTitle())
                         .description(productCreatingDto.getDescription())
@@ -41,8 +41,16 @@ public class ProductService {
                         .amount(productCreatingDto.getAmount())
                         .hashtags(hashtagsFromSetConverter
                                 .convert(new HashSet<>(productCreatingDto.getHashtags())))
-                        .build());
-        return newProduct.getId();
+                        .build()).getId();
+    }
+
+    public void updateProductAndSendEmails(ProductUpdatingDto updatingDto) {
+        Set<User> consumers = new HashSet<>();
+        if (areChangedOtherPositionsBesidesAmount(updatingDto)) {
+            consumers = getConsumersByProductId(updatingDto.getProductId());
+        }
+        updateProduct(updatingDto);
+        emailService.sendEmailAboutProductUpdating(consumers, updatingDto.getProductId());
     }
 
     @Transactional
@@ -59,7 +67,8 @@ public class ProductService {
                     .title(updatingDto.getTitle() == null ? productFromDb.getTitle() : updatingDto.getTitle())
                     .description(updatingDto.getDescription() == null ? productFromDb.getDescription() : updatingDto.getDescription())
                     .price(updatingDto.getPrice() == null ? productFromDb.getPrice() : updatingDto.getPrice())
-                    .amount(productFromDb.getAmount())
+                    .amount(updatingDto.getUpdatingProductAmount() == null ?
+                            productFromDb.getPrice() : updateProductAmount(productFromDb, updatingDto))
                     .build();
 
             if (!updatingDto.getHashtagsAsString().isEmpty()) {
@@ -79,21 +88,16 @@ public class ProductService {
             throw new ProductChangingException("Товар находится у кого-то в корзине а вы не указали что хотите изменить его в любом случае; ");
     }
 
-    @Transactional
-    public void updateProductAmount(ProductAmountUpdatingDto updatingDto) {
-        Product productFromDb = productRepository.findByIdWithPessimisticLock(updatingDto.getProductId()).orElseThrow(()
-                -> new ProductNotFoundException("Товара с id " + updatingDto.getProductId() + " не существует; "));
-
-        if (productFromDb.getAmount() + updatingDto.getUpdateAmount() >= 0) {
-            productFromDb.setAmount(productFromDb.getAmount() + updatingDto.getUpdateAmount());
-            productRepository.save(productFromDb);
+    private Integer updateProductAmount(Product productFromDb, ProductUpdatingDto updatingDto) {
+        if (productFromDb.getAmount() + updatingDto.getUpdatingProductAmount() >= 0) {
+            return productFromDb.getAmount() + updatingDto.getUpdatingProductAmount();
         } else throw new ProductChangingException("Вы пытаетесь изменить количество товара на недопустимое значение " +
                 "- оно станет меньше 0; ");
     }
 
     // На товар и его характеристики ссылаются BasketElements уже созданных заказов,
     // поэтому при удалении количество товара становится 0
-    // и удаляются все BasketElements в которые он заказан, но не добавлен
+    // и удаляются все BasketElements в которые он добавлен, но не заказан
     @Transactional
     public void deleteProduct(ProductDeletingDto deletingDto) {
         Product productForDelete = productRepository.findByIdWithPessimisticLock(deletingDto.getProductId()).orElseThrow(()
@@ -116,7 +120,7 @@ public class ProductService {
     }
 
     @Transactional(readOnly = true)
-    public Set<User> getConsumersWhoHaveThisProductInBasket(Long productId) {
+    public Set<User> getConsumersByProductId(Long productId) {
         List<BasketElement> basketElementsThatContainThisProduct = basketElementRepository.findAllFetchConsumerByProductId(productId);
         Set<User> consumersThatContainThisProductInBasket = new HashSet<>();
         basketElementsThatContainThisProduct.forEach(basketElement ->
@@ -128,6 +132,12 @@ public class ProductService {
     public ProductForMessageDto getProductDto(Long productId) {
         return productRepository.findProductDtoById(productId).orElseThrow(()
                 -> new ProductNotFoundException("Товара с id " + productId + " не существует; "));
+    }
+
+    private boolean areChangedOtherPositionsBesidesAmount(ProductUpdatingDto updatingDto) {
+        return updatingDto.getTitle() != null
+                || updatingDto.getPrice() != null
+                || updatingDto.getDescription() != null;
     }
 
 }

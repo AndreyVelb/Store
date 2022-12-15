@@ -36,10 +36,10 @@ public class BasketElementService {
     private final BasketElementResponseDtoListMapper basketElementResponseDtoListMapper;
 
     @Transactional(readOnly = true)
-    public BasketDto getAllBasketElementsFromBasket(Long consumerId) {
+    public BasketDto getConsumersBasket(Long consumerId) {
         userRepository.findById(consumerId).orElseThrow(()
-                -> new UserNotFoundException("Вы указали некорректные данные. Такого пользователя не существует"));
-        List<BasketElement> consumersBasket = basketElementRepository.findAllByConsumerId(consumerId);
+                -> new UserNotFoundException("Вы указали некорректные данные. Такого пользователя не существует; "));
+        List<BasketElement> consumersBasket = basketElementRepository.findAllByConsumerIdNotOrdered(consumerId);
 
         if (consumersBasket.isEmpty()) throw new BasketIsEmptyException("Ваша корзина пуста; ");
 
@@ -97,9 +97,9 @@ public class BasketElementService {
     }
 
     @Transactional(readOnly = true)
-    public BasketElementResponseDto getBasketElementFromBasket(Long basketElementId) {
-        return basketElementResponseDtoMapper.map(basketElementRepository.findById(basketElementId).orElseThrow(()
-                -> new BasketElementNotFoundException("Такой позиции в вашей корзине нет; ")));
+    public BasketElementResponseDto getBasketElement(Long basketElementId) {
+        return basketElementResponseDtoMapper.map(basketElementRepository.findById(basketElementId)
+                .orElseThrow(() -> new BasketElementNotFoundException("Такой позиции в вашей корзине нет; ")));
     }
 
     @Transactional
@@ -174,7 +174,7 @@ public class BasketElementService {
 
     @Transactional
     public void deleteBasketElement(Long basketElementId, Long consumerId) {
-        BasketElement basketElementForDeletion = basketElementRepository.findByIdAndByConsumerId(basketElementId, consumerId)
+        BasketElement basketElementForDeletion = basketElementRepository.findByIdAndByConsumerIdNotOrdered(basketElementId, consumerId)
                 .orElseThrow(() -> new BasketElementNotFoundException("Вами указана неверно одна из позиций для удаления. Ее не существует; "));
         basketElementRepository.delete(basketElementForDeletion);
     }

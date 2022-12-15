@@ -22,23 +22,20 @@ import java.util.Set;
 @Service
 @RequiredArgsConstructor
 public class EmailService {
+    private final MessageCreatorService messageCreatorService;
     private final JavaMailSender emailSender;
-    private final OrderRepository orderRepository;
-    private final ProductRepository productRepository;
-    private final BasketElementRepository basketElementRepository;
 
     public void sendEmailAboutOrderCreating(Long orderId, String toAddress) {
-
         SimpleMailMessage simpleMailMessage = new SimpleMailMessage();
         simpleMailMessage.setTo(toAddress);
         simpleMailMessage.setSubject("О создании заказа в магазине");
-        simpleMailMessage.setText(createEmailMessageAboutOrderCreating(orderId));
+        simpleMailMessage.setText(messageCreatorService.createEmailMessageAboutOrderCreating(orderId));
         emailSender.send(simpleMailMessage);
     }
 
     public void sendEmailAboutProductUpdating(Set<User> consumersWhoHaveUpdatingProduct, Long productId) {
         String subject = "Оповещение об изменении характеристик товара";
-        String message = createEmailMessageAboutProductUpdating(productId);
+        String message = messageCreatorService.createEmailMessageAboutProductUpdating(productId);
         for (User consumer : consumersWhoHaveUpdatingProduct) {
             SimpleMailMessage simpleMailMessage = new SimpleMailMessage();
             simpleMailMessage.setTo(consumer.getEmail());
@@ -50,7 +47,7 @@ public class EmailService {
 
     public void sendEmailAboutProductDeleting(Set<User> consumersWhoHaveDeletingProduct, ProductForMessageDto deletedProductDto) {
         String subject = "Оповещение о снятии товара с продажи";
-        String message = createEmailMessageAboutProductDeleting(deletedProductDto);
+        String message = messageCreatorService.createEmailMessageAboutProductDeleting(deletedProductDto);
         for (User consumer : consumersWhoHaveDeletingProduct) {
             SimpleMailMessage simpleMailMessage = new SimpleMailMessage();
             simpleMailMessage.setTo(consumer.getEmail());
@@ -59,46 +56,5 @@ public class EmailService {
             emailSender.send(simpleMailMessage);
         }
     }
-
-    private String createEmailMessageAboutProductDeleting(ProductForMessageDto deletedProductDto) {
-        return "Здравствуйте. К сожалению мы были вынуждены удалить товар " +
-                deletedProductDto.getTitle() + " \n " +
-                deletedProductDto.getDescription() + " \n " +
-                "который находился у вас в корзине. " +
-                "Приносим свои огромные извинения...";
-    }
-
-    @Transactional
-    public String createEmailMessageAboutProductUpdating(Long productId) {
-        Product updatedProduct = productRepository.findById(productId).orElseThrow(()
-                -> new ProductNotFoundException("Email покупателям отправлен не будет так как уникальный идентификатор" +
-                " товара при создании сообщения об отправке указан неправильно; "));
-        return "Здравствуйте. Приносим свои извинения но нам пришлось обновить товар " +
-                "который находится у вас в корзине и теперь он представляет из себя: " +
-                updatedProduct.getTitle() + " \n " + updatedProduct.getDescription() + " \n " +
-                "Цена: " + updatedProduct.getPrice() + " \n ";
-    }
-
-    @Transactional
-    public String createEmailMessageAboutOrderCreating(Long orderId) {
-        Order order = orderRepository.findById(orderId).orElseThrow(()
-                -> new OrderNotFoundException("Приносим свои извинения, но email о создании заказа вам отправлен не будет " +
-                "так как произошли проблемы на сервере; "));
-        List<BasketElement> orderContent = basketElementRepository.findAllByOrderId(orderId);
-        StringBuilder stringBuilder = new StringBuilder();
-        for (BasketElement basketElement : orderContent) {
-            stringBuilder.append(" - ")
-                    .append(basketElement.getProduct().getTitle())
-                    .append(" - ")
-                    .append(basketElement.getAmount())
-                    .append(" - c общей стоимостью ")
-                    .append(basketElement.getProduct().getPrice() * basketElement.getAmount())
-                    .append("рублей. \n");
-        }
-        return "Здравствуйте. Вы сделали в нашем магазине заказ на сумму " + order.getTotalCost() +
-                "рублей. Вами были заказаны следующие товары: \n" + stringBuilder +
-                "Спасибо за покупку!!!";
-    }
-
 
 }

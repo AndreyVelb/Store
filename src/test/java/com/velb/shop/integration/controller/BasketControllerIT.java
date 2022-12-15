@@ -56,7 +56,7 @@ public class BasketControllerIT extends IntegrationTestBase {
                         .amount(10)
                         .build());
 
-        mockMvc.perform(post("/api/v1/consumers/" + consumerId + "/basket-elements")
+        mockMvc.perform(post("/api/v1/consumers/" + consumerId + "/basket")
                         .content(objectMapper.writeValueAsString(basketElementDtoList))
                         .contentType(MediaType.APPLICATION_JSON)
                         .with(csrf()))
@@ -69,13 +69,13 @@ public class BasketControllerIT extends IntegrationTestBase {
     @WithUserDetails("ivanov@yandex.com")
     void getBasket() throws Exception {
         long consumerId = 3L;
-        List<BasketElement> consumersBasket = basketElementRepository.findAllByConsumerId(consumerId);
+        List<BasketElement> consumersBasket = basketElementRepository.findAllByConsumerIdNotOrdered(consumerId);
         String expectedResponse = objectMapper.writeValueAsString(
                 new BasketDto(
                         basketElementResponseDtoListMapper
                                 .map(consumersBasket)));
 
-        MvcResult result = mockMvc.perform(get("/api/v1/consumers/" + consumerId + "/basket-elements")
+        MvcResult result = mockMvc.perform(get("/api/v1/consumers/" + consumerId + "/basket")
                         .contentType(MediaType.APPLICATION_JSON)
                         .with(csrf()))
                 .andExpectAll(
@@ -95,7 +95,7 @@ public class BasketControllerIT extends IntegrationTestBase {
         assertTrue(basketElement.isPresent());
         BasketElementResponseDto expectedResponseDto = basketElementResponseDtoMapper.map(basketElement.get());
 
-        MvcResult result = mockMvc.perform(get("/api/v1/consumers/" + consumerId + "/basket-elements/" + basketElementId)
+        MvcResult result = mockMvc.perform(get("/api/v1/consumers/" + consumerId + "/basket/" + basketElementId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .with(csrf()))
                 .andExpectAll(
@@ -125,7 +125,7 @@ public class BasketControllerIT extends IntegrationTestBase {
                         .build()
         );
 
-        mockMvc.perform(patch("/api/v1/consumers/" + consumerId + "/basket-elements")
+        mockMvc.perform(patch("/api/v1/consumers/" + consumerId + "/basket")
                         .content(objectMapper.writeValueAsString(basketElementUpdatingDtoList))
                         .contentType(MediaType.APPLICATION_JSON)
                         .with(csrf()))
@@ -136,9 +136,9 @@ public class BasketControllerIT extends IntegrationTestBase {
     @WithUserDetails("petrov@gmail.com")
     void deleteBasketElements() throws Exception {
         long consumerId = 2L;
-        List<Long> basketElementIdList = List.of(1L, 2L, 3L);
+        List<Long> basketElementIdList = List.of(10L, 11L, 12L);
 
-        mockMvc.perform(delete("/api/v1/consumers/" + consumerId + "/basket-elements")
+        mockMvc.perform(delete("/api/v1/consumers/" + consumerId + "/basket")
                         .content(objectMapper.writeValueAsString(basketElementIdList))
                         .contentType(MediaType.APPLICATION_JSON)
                         .with(csrf()))
@@ -159,7 +159,7 @@ public class BasketControllerIT extends IntegrationTestBase {
                 .amount(2)
                 .build();
 
-        mockMvc.perform(patch("/api/v1/consumers/" + consumerId + "/basket-elements/" + basketElementId)
+        mockMvc.perform(patch("/api/v1/consumers/" + consumerId + "/basket/" + basketElementId)
                         .content(objectMapper.writeValueAsString(updatingDto))
                         .contentType(MediaType.APPLICATION_JSON)
                         .with(csrf()))
@@ -167,15 +167,15 @@ public class BasketControllerIT extends IntegrationTestBase {
     }
 
     @Test
-    @WithUserDetails("ivanov@yandex.com")
+    @WithUserDetails("petrov@gmail.com")
     void deleteBasketElement() throws Exception {
-        long consumerId = 3L;
-        long basketElementId = 4L;
+        long consumerId = 2L;
+        long basketElementId = 11L;
         BasketElementDeletingDto deletingDto = BasketElementDeletingDto.builder()
                 .basketElementId(basketElementId)
                 .build();
 
-        mockMvc.perform(delete("/api/v1/consumers/" + consumerId + "/basket-elements/" + basketElementId)
+        mockMvc.perform(delete("/api/v1/consumers/" + consumerId + "/basket/" + basketElementId)
                         .content(objectMapper.writeValueAsString(deletingDto))
                         .contentType(MediaType.APPLICATION_JSON)
                         .with(csrf()))

@@ -15,7 +15,7 @@ import java.util.Map;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class OrderCreatingDto {
+public class OrderCreatingByAdminDto {
 
     @NotNull(message = " Поле ПОКУПАТЕЛЬ обязательно должно быть заполнено; ")
     @Min(value = 1L, message = " Некорректное значение уникального идентификатора пользователя - оно не может быть меньше 1; ")
@@ -25,4 +25,10 @@ public class OrderCreatingDto {
     @ProductsAndAmount
     private Map<Long, Integer> productsAndAmount;
 
+    @NotNull(message = " Некорректно передалось значение уникального идентификатора администратора. Оно не может быть пустым; ")
+    @Min(value = 1L,
+         message = " Некорректно передалось значение уникального идентификатора администратора." + "Оно не может быть меньше 1; ")
+    @Max(value = Long.MAX_VALUE,
+         message = " Некорректно передалось значение уникального идентификатора администратора. " + "Оно слишком велико; ")
+    private Long adminId;
 }

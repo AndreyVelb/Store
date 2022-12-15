@@ -28,13 +28,12 @@ import java.util.List;
 
 @Validated
 @RestController
-@RequestMapping("/api/v1/consumers/{consumerId}/basket-elements")
+@RequestMapping("/api/v1/consumers/{consumerId}/basket")
 @RequiredArgsConstructor
 public class BasketController {
     private final BasketElementService basketElementService;
 
-    @PostMapping(value = "", consumes = MediaType.APPLICATION_JSON_VALUE)
-    @ResponseStatus(HttpStatus.CREATED)
+    @PostMapping(value = "", consumes = "application/json;charset=UTF-8")
     @PreAuthorize("authentication.principal.id == #consumerId")
     public ResponseEntity<String> addProductsToBasket(@RequestBody @Validated List<BasketElementDto> basketElementDtoList,
                                                       @PathVariable Long consumerId) {
@@ -47,10 +46,10 @@ public class BasketController {
     @ResponseStatus(HttpStatus.OK)
     @PreAuthorize("authentication.principal.id == #consumerId")
     public BasketDto getBasket(@PathVariable Long consumerId) {
-        return basketElementService.getAllBasketElementsFromBasket(consumerId);
+        return basketElementService.getConsumersBasket(consumerId);
     }
 
-    @PatchMapping(value = "", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @PatchMapping(value = "", consumes = "application/json;charset=UTF-8")
     @ResponseStatus(HttpStatus.OK)
     @PreAuthorize("authentication.principal.id == #consumerId")
     public void changeBasketElements(@RequestBody List<@Valid BasketElementUpdatingDto> basketElementUpdatingInfoList,
@@ -58,7 +57,7 @@ public class BasketController {
         basketElementService.changeBasketElements(basketElementUpdatingInfoList, consumerId);
     }
 
-    @DeleteMapping(value = "", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @DeleteMapping(value = "", consumes = "application/json;charset=UTF-8")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @PreAuthorize("authentication.principal.id == #consumerId")
     public void deleteBasketElements(@RequestBody List<Long> basketElementIdList,
@@ -66,15 +65,15 @@ public class BasketController {
         basketElementService.deleteBasketElements(basketElementIdList, consumerId);
     }
 
-    @GetMapping(value = "/{basketElementId}", produces = "application/json;charset=UTF-8")
+    @GetMapping(value = "/{id}", produces = "application/json;charset=UTF-8")
     @ResponseStatus(HttpStatus.OK)
     @PreAuthorize("authentication.principal.id == #consumerId")
     public BasketElementResponseDto getBasketElement(@PathVariable Long consumerId,
-                                                     @PathVariable Long basketElementId) {
-        return basketElementService.getBasketElementFromBasket(basketElementId);
+                                                     @PathVariable Long id) {
+        return basketElementService.getBasketElement(id);
     }
 
-    @PatchMapping(value = "/{basketElementId}", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @PatchMapping(value = "/{basketElementId}", consumes = "application/json;charset=UTF-8")
     @ResponseStatus(HttpStatus.OK)
     @PreAuthorize("authentication.principal.id == #consumerId")
     public void changeBasketElement(@RequestBody @Validated BasketElementUpdatingDto basketElementUpdatingInfo,
@@ -82,7 +81,7 @@ public class BasketController {
         basketElementService.changeBasketElement(basketElementUpdatingInfo, consumerId);
     }
 
-    @DeleteMapping(value = "/{basketElementId}", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @DeleteMapping(value = "/{basketElementId}", consumes = "application/json;charset=UTF-8")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @PreAuthorize("authentication.principal.id == #consumerId")
     public void deleteBasketElement(@RequestBody BasketElementDeletingDto deletingDto,

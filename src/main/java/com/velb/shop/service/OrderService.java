@@ -6,7 +6,8 @@ import com.velb.shop.exception.OrderNotFoundException;
 import com.velb.shop.exception.ProductNotFoundException;
 import com.velb.shop.exception.UserNotFoundException;
 import com.velb.shop.model.dto.BasketElementForPrepareOrderDto;
-import com.velb.shop.model.dto.OrderCreatingDto;
+import com.velb.shop.model.dto.OrderCreatingByAdminDto;
+import com.velb.shop.model.dto.OrderDeletingDto;
 import com.velb.shop.model.dto.OrderHistoryDto;
 import com.velb.shop.model.dto.OrderUpdatingDto;
 import com.velb.shop.model.dto.PreparedOrderForShowUserDto;
@@ -38,6 +39,7 @@ import java.util.Objects;
 @Service
 @RequiredArgsConstructor
 public class OrderService {
+    private final MessageCreatorService messageCreatorService;
     private final OrderRepository orderRepository;
     private final UserRepository userRepository;
     private final ProductRepository productRepository;
@@ -47,12 +49,13 @@ public class OrderService {
 
     @Transactional
     public PreparedOrderForShowUserDto prepareOrderByConsumer(Long consumerId) {
+        userRepository.findById(consumerId).orElseThrow(()
+                -> new UserNotFoundException("Вы вошли в систему как некорректный пользователь; "));
+
         List<BasketElementForPrepareOrderDto> preparedOrderContent = new ArrayList<>();
         int totalCost = 0;
         StringBuilder messageBuilder = new StringBuilder();
 
-        userRepository.findById(consumerId).orElseThrow(()
-                -> new UserNotFoundException("Вы вошли в систему как некорректный пользователь; "));
         List<BasketElement> consumersBasket = basketElementRepository.findAllFetchProductByConsumerIdNotOrderedWithLock(consumerId);
 
         if (consumersBasket.isEmpty()) {
@@ -68,7 +71,9 @@ public class OrderService {
                 basketElement.setAmount(amountInShop);
                 basketElement.setProductBookingTime(LocalDateTime.now());
                 basketElementRepository.save(basketElement);
-                messageBuilder.append(createResponseAboutNotEnoughAmountOfProductWithAdding(basketElement.getProduct(), orderedAmount));
+                messageBuilder.append(
+                        messageCreatorService
+                                .createResponseAboutNotEnoughAmountOfProductWithAdding(basketElement.getProduct(), orderedAmount));
                 basketElement.getProduct().setAmount(0);
             } else {
                 basketElement.setProductBookingTime(LocalDateTime.now());
@@ -95,7 +100,7 @@ public class OrderService {
     }
 
     @Transactional
-    public Long makeOrderByConsumer(Long consumerId) {
+    public Long createOrderByConsumer(Long consumerId) {
         int totalCost = 0;
 
         User consumer = userRepository.findById(consumerId).orElseThrow(()
@@ -126,7 +131,7 @@ public class OrderService {
     }
 
     @Transactional
-    public void cancelOrderCreationByConsumer(Long consumerId) {
+    public void cancelOrderByConsumer(Long consumerId) {
         userRepository.findByIdFetchBasket(consumerId).orElseThrow(()
                 -> new UserNotFoundException("Вы вошли в систему как некорректный пользователь; "));
         List<BasketElement> usersBasket = basketElementRepository.findAllByConsumerIdNotOrdered(consumerId);
@@ -144,8 +149,8 @@ public class OrderService {
     }
 
     @Transactional
-    public Long createNewOrderByAdmin(Long adminId, OrderCreatingDto orderCreatingDto) {
-        User admin = userRepository.findById(adminId).orElseThrow(()
+    public Long createOrderByAdmin(OrderCreatingByAdminDto orderCreatingDto) {
+        User admin = userRepository.findById(orderCreatingDto.getAdminId()).orElseThrow(()
                 -> new UserNotFoundException("Вы вошли в систему как некорректный пользователь; "));
         User consumer = userRepository.findById(orderCreatingDto.getConsumerId()).orElseThrow(()
                 -> new UserNotFoundException("Вы выбрали некорректного покупателя; "));
@@ -161,7 +166,7 @@ public class OrderService {
                     -> new ProductNotFoundException("Товара с id " + entry.getKey() + " не существует; "));
             productMap.put(product.getId(), product);
             if (product.getAmount() < entry.getValue()) {
-                messageBuilder.append(createResponseAboutNotEnoughAmountOfProduct(product, entry.getValue()));
+                messageBuilder.append(messageCreatorService.createResponseAboutNotEnoughAmountOfProduct(product, entry.getValue()));
                 isEnoughAmountOfProducts = false;
             }
         }
@@ -198,15 +203,15 @@ public class OrderService {
     }
 
     @Transactional
-    public void updateOrderByAdmin(Long adminId, OrderUpdatingDto orderUpdatingDto) {
-        Order orderForUpdate = orderRepository.findById(orderUpdatingDto.getOrderId()).orElseThrow(()
-                -> new OrderNotFoundException("Заказа с id " + orderUpdatingDto.getOrderId() + " не существует; "));
-        User admin = userRepository.findById(adminId).orElseThrow(()
+    public void updateOrderByAdmin(Long orderId, OrderUpdatingDto orderUpdatingDto) {
+        Order orderForUpdate = orderRepository.findById(orderId).orElseThrow(()
+                -> new OrderNotFoundException("Заказа с id " + orderId + " не существует; "));
+        User admin = userRepository.findById(orderUpdatingDto.getAdminId()).orElseThrow(()
                 -> new UserNotFoundException("Вы вошли в систему как некорректный пользователь; "));
 
         int totalCoast = 0;
         StringBuilder messageBuilder = new StringBuilder();
-        List<BasketElement> orderContent = basketElementRepository.findAllByOrderId(orderUpdatingDto.getOrderId());
+        List<BasketElement> orderContent = basketElementRepository.findAllByOrderId(orderId);
 
         for (Map.Entry<Long, Integer> entry : orderUpdatingDto.getProductsAndAmount().entrySet()) {
             Product product = productRepository.findByIdWithPessimisticLock(entry.getKey()).orElseThrow(()
@@ -221,7 +226,9 @@ public class OrderService {
                             basketElement.setAmount(entry.getValue());
                             totalCoast += entry.getValue() * product.getPrice();
                         } else {
-                            messageBuilder.append(createResponseAboutNotEnoughAmountOfProduct(product, entry.getValue()));
+                            messageBuilder.append(
+                                    messageCreatorService
+                                            .createResponseAboutNotEnoughAmountOfProduct(product, entry.getValue()));
                         }
                     }
                 }
@@ -236,7 +243,9 @@ public class OrderService {
                                     .priceInOrder(product.getPrice())
                                     .build());
                 } else {
-                    messageBuilder.append(createResponseAboutNotEnoughAmountOfProduct(product, entry.getValue()));
+                    messageBuilder.append(
+                            messageCreatorService
+                                    .createResponseAboutNotEnoughAmountOfProduct(product, entry.getValue()));
                 }
             }
         }
@@ -253,8 +262,8 @@ public class OrderService {
     }
 
     @Transactional
-    public void deleteOrderByAdmin(Long adminId, Long orderId) {
-        User admin = userRepository.findById(adminId).orElseThrow(()
+    public void deleteOrderByAdmin(Long orderId, OrderDeletingDto deletingDto) {
+        User admin = userRepository.findById(deletingDto.getAdminId()).orElseThrow(()
                 -> new UserNotFoundException("Вы вошли в систему как некорректный пользователь; "));
         Order orderForDelete = orderRepository.findById(orderId).orElseThrow(()
                 -> new OrderNotFoundException("Заказа с id " + orderId + " не существует; "));
@@ -278,27 +287,18 @@ public class OrderService {
         return new PageImpl<>(orderHistoryDtoList, pageable, orderHistoryDtoList.size());
     }
 
-    private String createResponseAboutNotEnoughAmountOfProduct(Product product, Integer amountInUsersBasket) {
-        return " - На данный момент такого количества товара " +
-                product.getTitle() + " на складе нет. " +
-                "Осталось " + product.getAmount() + " экземпляров, а вы хотели заказать -  " + amountInUsersBasket;
-    }
-
-    private String createResponseAboutNotEnoughAmountOfProductWithAdding(Product product, Integer amountInUsersBasket) {
-        return " - Приносим свои извинения, но к сожалению на данный момент такого количества товара " +
-                product.getTitle() + " на складе нет. " +
-                "Мы добавили в ваш заказ " + product.getAmount() + " из " + amountInUsersBasket + " экземпляров. ";
+    @Transactional(readOnly = true)
+    public OrderHistoryDto getOrderById(Long id) {
+        Order order = orderRepository.findByIdFetchConsumerAndLastUser(id).orElseThrow(()
+                -> new OrderNotFoundException("Заказа с таким уникальным идентификатором не найдено"));
+        List<BasketElement> basketElementList = basketElementRepository.findAllByOrderIdFetchProduct(id);
+        return orderHistoryDtoMapper.map(order, basketElementList);
     }
 
     private boolean isPresentInBasket(Long productId, List<BasketElement> basket) {
-        boolean isPresent = false;
-        for (BasketElement basketElement : basket) {
-            if (basketElement.getProduct().getId().equals(productId)) {
-                isPresent = true;
-                break;
-            }
-        }
-        return isPresent;
+        return basket.stream()
+                .map(BasketElement::getProduct)
+                .anyMatch(product -> product.getId().equals(productId));
     }
 
     private boolean isEnoughAmountOfProducts(Product product, BasketElement basketElement, Integer amountInRequest) {
