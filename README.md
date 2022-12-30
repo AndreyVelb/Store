@@ -1,10 +1,10 @@
-#Store
+# Store
 
 *This project was created with Spring framework using MVC architectural pattern. I tried to follow the rules of 
 REST-api construction in it. Interaction with the frontend was organized using json*
 
 
-###[Entity](https://github.com/AndreyVelb/Store/tree/master/src/main/java/com/velb/shop/model/entity)
+### [Entity](https://github.com/AndreyVelb/Store/tree/master/src/main/java/com/velb/shop/model/entity)
 - **User**
 This entity is projection on **users** table. It includes all data about admins and consumers.
 
@@ -25,12 +25,12 @@ Field *lastUser* indicates the last user who changed anything in the order,
 and the field *orderStatus* shows what exactly
 
 
-###[Repository](https://github.com/AndreyVelb/Store/tree/master/src/main/java/com/velb/shop/repository)
+### [Repository](https://github.com/AndreyVelb/Store/tree/master/src/main/java/com/velb/shop/repository)
 They are designed to interact with the database. Each entity has its own repository.
 The only exception is the HashtagRepository, it was created to search products by hashtags using the Criteria API.
 To search products by request in the ProductRepository, use *FullTextSearch by Postgres*.
 
-###[Service](https://github.com/AndreyVelb/Store/tree/master/src/main/java/com/velb/shop/service)
+### [Service](https://github.com/AndreyVelb/Store/tree/master/src/main/java/com/velb/shop/service)
 ######-BasketElementService 
 All methods in the service are divided into single and multiple (call single). 
 Multiple methods are not transactional and are designed not to roll back all changes due to one exception when calling 
