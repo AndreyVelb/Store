@@ -19,7 +19,7 @@
     </parent>
 
     <properties>
-        <java.version>11</java.version>
+        <java.version>15</java.version>
         <postgresql.version>42.3.6</postgresql.version>
         <liquibase.version>4.11.0</liquibase.version>
         <springdoc-openapi-ui.version>1.6.9</springdoc-openapi-ui.version>
