@@ -1,0 +1,94 @@
+#!/bin/bash
+
+if [[ -f "./env.sh" ]]; then
+  echo "Use env variables from file ${PWD}/env.sh"
+  source ./env.sh
+fi
+workDir="${WORKING_DIRECTORY:=~/Workspace}"
+DB_CONTAINER_NAME=postgresqlcontainer
+
+help() {
+  echo "
+  Usage:
+    ./application init - init working directory and database
+    ./application clean - clean working directory
+    ./application build - run JUnit tests to check application health (-skipTests arg to skip tests) and build jar
+    ./application up - launch application
+  "
+}
+
+build() {
+   cd "${workDir}"/Store || exit
+   mvn clean
+
+   if [[ "$1" = "-skipTests" ]] || mvn test; then
+     echo "Application is bbuilding..."
+     mvn package
+   else
+	echo "Tests failed. See test report or send -skipTests arg to skip test"
+   fi
+}
+
+up() {
+  cd "${workDir}/Store/target" || exit
+  java -jar Shop-*.jar
+}
+
+init() {
+  #init working directory
+  mkdir -p "${workDir}"
+  cd "${workDir}" || exit
+
+  #clone git repository
+  if [[ ! -d "Store" ]]; then
+    git clone https://github.com/AndreyVelb/Store.git
+    cd "Store" || exit
+  fi
+
+  #preparing postgresql
+  if docker ps -a | grep "${DB_CONTAINER_NAME}" ; then
+    docker start "${DB_CONTAINER_NAME}"
+  else
+    docker pull postgres
+    docker run --name "${DB_CONTAINER_NAME}" \
+      -e POSTGRES_USER=shop_admin \
+      -e POSTGRES_PASSWORD=pass \
+      -e POSTGRES_DB=shop \
+      -p 5432:5432 \
+      -d postgres
+  fi
+}
+
+clean() {
+  #remove working directory
+  echo "Removing working directory ${workDir}..."
+  rm -rf "${workDir}"
+
+  #stop docker container (postgresqlcontainer)
+  if docker ps | grep "${DB_CONTAINER_NAME}"; then
+    echo "Stopping container name ${DB_CONTAINER_NAME}..."
+    docker stop "${DB_CONTAINER_NAME}"
+  fi
+}
+
+case $1 in
+help)
+  help
+  ;;
+init)
+  init
+  ;;
+clean)
+  clean
+  ;;
+build)
+  build $2
+  ;;
+up)
+  up
+  ;;
+*)
+  echo "$1 command is not valid"
+  exit 1
+  ;;
+esac
